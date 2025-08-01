@@ -13,8 +13,8 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, s
 client = gspread.authorize(creds)
 
 # === Open Sheet ===
-SHEET_NAME = "Pantry Entries"   # ✅ Exact sheet name from Google Drive
-sheet = client.open(SHEET_NAME).worksheet("Pantry_Entries")  # ✅ Must match tab name
+SHEET_NAME = "Pantry_Entries"   # ✅ Exact sheet name from Google Drive
+sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")  # ✅ Must match tab name
 
 
 # === Load existing data ===
