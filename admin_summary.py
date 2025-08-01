@@ -19,7 +19,7 @@ st.write("📄 Sheets your service account can access:", sheet_titles)
 
 # === Open Sheet ===
 SHEET_NAME = "Pantry_Entries"
-sheet = client.open(SHEET_NAME).worksheet("Pantry_Entries")
+sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
 # === Load Data ===
 data = sheet.get_all_records()
