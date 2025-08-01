@@ -24,9 +24,11 @@ df = pd.DataFrame(data)
 st.set_page_config(page_title="Admin Dashboard", layout="wide")
 st.title("📊 Pantry Admin Dashboard")
 
-# === Password Gate for Admin-Only Features ===
+# === Password Gate for Admin-Only Features ==
 admin_password = st.text_input("🔐 Enter Admin Password to Edit/Delete", type="password")
-admin_access = admin_password == "Vhs@2014"  # Change this to your secret
+stored_password = st.secrets["ADMIN_PASSWORD"]
+admin_access = admin_password == stored_password
+
 
 st.markdown("---")
 
