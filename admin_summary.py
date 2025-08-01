@@ -1,4 +1,4 @@
-# admin_summary.py (Final Version with Safe Rerun)
+# admin_summary.py (Final Version with Safe Rerun + Edit/Delete)
 
 import streamlit as st
 import gspread
@@ -138,3 +138,25 @@ with st.form("add_item"):
             st.success(f"✅ Added {new_item} to Rates.")
 
         st.session_state["refresh_app"] = True  # ✅ Safe rerun trigger
+
+st.markdown("---")
+
+# === Admin Entry Edit/Delete ===
+st.markdown("### ✏️ Edit or Delete Pantry Entry")
+row_index = st.number_input("Enter Row Index (starting from 0)", min_value=0, max_value=len(df) - 1, step=1)
+
+if st.button("🗑️ Delete Entry"):
+    entries.delete_rows(row_index + 2)  # +2 for header row and 0-index
+    st.success("✅ Entry deleted successfully. Please refresh the app.")
+
+with st.form("update_entry_form"):
+    new_qty = st.number_input("New Quantity", value=int(df.loc[row_index, "Quantity"]), step=1)
+    new_action = st.selectbox("New Action", ["Issued", "Returned"], index=["Issued", "Returned"].index(df.loc[row_index, "Action"]))
+    update_btn = st.form_submit_button("Update Entry")
+    if update_btn:
+        row_data = df.loc[row_index].tolist()
+        row_data[4] = new_qty
+        row_data[5] = new_action
+        entries.delete_rows(row_index + 2)
+        entries.insert_row(row_data, row_index + 2)
+        st.success("✅ Entry updated successfully. Please refresh the app.")
