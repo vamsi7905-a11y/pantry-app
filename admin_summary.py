@@ -1,11 +1,11 @@
-# admin_summary.py (Final Version with Safe Rerun + Edit/Delete)
+# admin_summary.py (Final Version with Filter + Safe Rerun + Edit/Delete)
 
 import streamlit as st
 import gspread
 import pandas as pd
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 from io import BytesIO
 
@@ -55,7 +55,6 @@ if not st.session_state.logged_in:
                 st.error("❌ Incorrect password.")
     st.stop()
 
-
 # ✅ Safe rerun after login only
 if "refresh_app" in st.session_state:
     del st.session_state["refresh_app"]
@@ -70,9 +69,26 @@ if st.sidebar.button("🚪 Logout"):
 st.title("📊 Admin Billing Dashboard")
 st.markdown("---")
 
+# === Filter: Day / Week / Month ===
+st.markdown("### 🔍 Filter Entries")
+filter_option = st.selectbox("Show Entries For:", ["Today", "This Week", "This Month", "All"])
+
+df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+df = df[df["Action"] == "Issued"]
+
+today = pd.Timestamp.today().normalize()
+
+if filter_option == "Today":
+    df = df[df["Date"] == today]
+elif filter_option == "This Week":
+    start_of_week = today - pd.Timedelta(days=today.weekday())
+    df = df[(df["Date"] >= start_of_week) & (df["Date"] <= today)]
+elif filter_option == "This Month":
+    start_of_month = today.replace(day=1)
+    df = df[(df["Date"] >= start_of_month) & (df["Date"] <= today)]
+
 # === Billing Summary (Pivoted Format) ===
 st.markdown("### 🧾 Final Billing with GST")
-df = df[df["Action"] == "Issued"]
 
 pivot = pd.pivot_table(
     df,
