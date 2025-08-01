@@ -24,6 +24,7 @@ data = sheet.get_all_records()
 df = pd.DataFrame(data)
 df.columns = df.columns.astype(str).str.strip()  # ✅ Safe for empty or weird headers
 
+st.write("🧾 Sheet Columns:", df.columns.tolist())
 
 st.set_page_config(page_title="Admin Dashboard", layout="wide")
 st.title("📊 Pantry Admin Dashboard")
