@@ -26,7 +26,7 @@ st.title("📊 Pantry Admin Dashboard")
 
 # === Password Gate for Admin-Only Features ===
 admin_password = st.text_input("🔐 Enter Admin Password to Edit/Delete", type="password")
-admin_access = admin_password == "admin@123"  # Change this to your secret
+admin_access = admin_password == "Vhs@2014"  # Change this to your secret
 
 st.markdown("---")
 
