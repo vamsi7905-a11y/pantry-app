@@ -55,10 +55,11 @@ if not st.session_state.logged_in:
                 st.error("❌ Incorrect password.")
     st.stop()
 
-# ✅ Safe rerun after login only
-if "refresh_app" in st.session_state:
+# ✅ Safe rerun only after login is complete
+if st.session_state.get("logged_in") and st.session_state.get("refresh_app"):
     del st.session_state["refresh_app"]
     st.experimental_rerun()
+
 
 # === Logout ===
 st.sidebar.success("✅ Logged in")
