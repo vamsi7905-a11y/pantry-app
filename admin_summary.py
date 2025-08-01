@@ -1,4 +1,4 @@
-# admin_summary.py (Final Version)
+# admin_summary.py (Final Version with Safe Rerun)
 
 import streamlit as st
 import gspread
@@ -38,12 +38,6 @@ rates_dict = dict(zip(rates_df['Item'], rates_df['Rate']))
 # === Login System ===
 st.set_page_config(page_title="Admin Panel", layout="wide")
 
-# Safe rerun trigger for app refresh
-if "refresh_app" in st.session_state:
-    del st.session_state["refresh_app"]
-    st.experimental_rerun()
-
-
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -60,6 +54,11 @@ if not st.session_state.logged_in:
             else:
                 st.error("❌ Incorrect password.")
     st.stop()
+
+# ✅ Safe rerun after login only
+if "refresh_app" in st.session_state:
+    del st.session_state["refresh_app"]
+    st.experimental_rerun()
 
 # === Logout ===
 st.sidebar.success("✅ Logged in")
@@ -138,4 +137,4 @@ with st.form("add_item"):
             rates_ws.append_row([new_item, new_rate])
             st.success(f"✅ Added {new_item} to Rates.")
 
-        st.session_state["refresh_app"] = True  # Safe rerun flag
+        st.session_state["refresh_app"] = True  # ✅ Safe rerun trigger
