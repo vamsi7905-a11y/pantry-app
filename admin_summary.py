@@ -13,9 +13,7 @@ service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 
-sheet_list = client.openall()
-sheet_titles = [s.title for s in sheet_list]
-st.write("📄 Sheets your service account can access:", sheet_titles)
+
 
 # === Open Sheet ===
 SHEET_NAME = "Pantry_Entries"
