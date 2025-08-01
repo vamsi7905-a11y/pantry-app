@@ -38,6 +38,12 @@ rates_dict = dict(zip(rates_df['Item'], rates_df['Rate']))
 # === Login System ===
 st.set_page_config(page_title="Admin Panel", layout="wide")
 
+# Safe rerun trigger for app refresh
+if "refresh_app" in st.session_state:
+    del st.session_state["refresh_app"]
+    st.experimental_rerun()
+
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -121,12 +127,12 @@ with st.form("add_item"):
     new_rate = st.number_input("Rate", min_value=0, step=1)
     add = st.form_submit_button("Add/Update")
     if add and new_item:
-        existing_items = rates_ws.col_values(1)
-        if new_item in existing_items:
-            row_num = existing_items.index(new_item) + 1
-            rates_ws.update_cell(row_num, 2, new_rate)
-            st.success(f"Updated rate for {new_item}.")
-        else:
-            rates_ws.append_row([new_item, new_rate])
-            st.success(f"Added {new_item} to Rates.")
-        st.experimental_rerun()
+    existing_items = rates_ws.col_values(1)
+    if new_item in existing_items:
+        row_num = existing_items.index(new_item) + 1
+        rates_ws.update_cell(row_num, 2, new_rate)
+        st.success(f"✅ Updated rate for {new_item}.")
+    else:
+        rates_ws.append_row([new_item, new_rate])
+        st.success(f"✅ Added {new_item} to Rates.")
+    st.session_state["refresh_app"] = True  # Safe rerun flag
