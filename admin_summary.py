@@ -13,8 +13,6 @@ service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 
-
-
 # === Open Sheet ===
 SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
@@ -22,18 +20,16 @@ sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 # === Load Data ===
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
-df.columns = df.columns.astype(str).str.strip()  # ✅ Safe for empty or weird headers
-
-st.write("🧾 Sheet Columns:", df.columns.tolist())
+df.columns = df.columns.astype(str).str.strip()  # ✅ Clean header names
+st.write("📋 Loaded columns:", df.columns.tolist())  # 🔍 Debug output
 
 st.set_page_config(page_title="Admin Dashboard", layout="wide")
 st.title("📊 Pantry Admin Dashboard")
 
-# === Password Gate for Admin-Only Features ==
+# === Admin Password ===
 admin_password = st.text_input("🔐 Enter Admin Password to Edit/Delete", type="password")
 stored_password = st.secrets["ADMIN_PASSWORD"]
 admin_access = admin_password == stored_password
-
 
 st.markdown("---")
 
@@ -43,14 +39,18 @@ with st.expander("🔍 Filters"):
     with col1:
         apm_filter = st.text_input("APM ID Filter")
     with col2:
-        item_filter = st.selectbox("Item Filter", ["All"] + sorted(df["Item"].unique()))
+        if "Item" in df.columns:
+            item_filter = st.selectbox("Item Filter", ["All"] + sorted(df["Item"].dropna().unique()))
+        else:
+            st.warning("⚠️ 'Item' column not found. Please check your Google Sheet.")
+            st.stop()
     with col3:
         action_filter = st.selectbox("Action Filter", ["All", "Issued", "Returned"])
 
+# === Apply Filters ===
 filtered_df = df.copy()
-
 if apm_filter:
-    filtered_df = filtered_df[filtered_df["APM ID"].str.contains(apm_filter, case=False)]
+    filtered_df = filtered_df[filtered_df["APM ID"].astype(str).str.contains(apm_filter, case=False)]
 if item_filter != "All":
     filtered_df = filtered_df[filtered_df["Item"] == item_filter]
 if action_filter != "All":
@@ -58,7 +58,7 @@ if action_filter != "All":
 
 st.dataframe(filtered_df, use_container_width=True)
 
-# === Net Summary ===
+# === Monthly Summary ===
 st.markdown("### 📦 Monthly Summary (Issued - Returned)")
 
 if not df.empty:
@@ -71,7 +71,7 @@ if not df.empty:
     summary["Net Quantity"] = summary.get("Issued", 0) - summary.get("Returned", 0)
     st.dataframe(summary, use_container_width=True)
 
-    # === Download Summary ===
+    # === Download Summary as Excel ===
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         summary.to_excel(writer, index=False, sheet_name="Billing Summary")
@@ -101,8 +101,8 @@ if admin_access:
         update_btn = st.form_submit_button("Update Row")
         if update_btn:
             row_data = df.loc[row_index].tolist()
-            row_data[4] = new_qty  # Update quantity
-            row_data[5] = new_action  # Update action
+            row_data[4] = new_qty  # Update Quantity
+            row_data[5] = new_action  # Update Action
             sheet.delete_rows(row_index + 2)
             sheet.insert_row(row_data, row_index + 2)
             st.success("Row updated. Please refresh the app.")
