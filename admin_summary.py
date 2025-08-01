@@ -20,8 +20,10 @@ SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
 # === Load Data ===
-df = pd.DataFrame(sheet.get_all_records())
-df.columns = df.columns.str.strip()  # ✨ Trim header spaces
+data = sheet.get_all_records()
+df = pd.DataFrame(data)
+df.columns = df.columns.astype(str).str.strip()  # ✅ Safe for empty or weird headers
+
 
 st.set_page_config(page_title="Admin Dashboard", layout="wide")
 st.title("📊 Pantry Admin Dashboard")
