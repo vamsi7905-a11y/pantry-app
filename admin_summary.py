@@ -21,7 +21,13 @@ sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
 df.columns = df.columns.astype(str).str.strip()  # ✅ Clean header names
+if df.empty:
+    st.warning("⚠️ No data found in the sheet. Please enter at least one record.")
+    st.stop()  # Prevent the rest of the app from crashing
+
 st.write("📋 Loaded columns:", df.columns.tolist())  # 🔍 Debug output
+
+
 
 st.set_page_config(page_title="Admin Dashboard", layout="wide")
 st.title("📊 Pantry Admin Dashboard")
