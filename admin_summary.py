@@ -55,6 +55,7 @@ if not st.session_state.logged_in:
                 st.error("❌ Incorrect password.")
     st.stop()
 
+
 # ✅ Safe rerun after login only
 if "refresh_app" in st.session_state:
     del st.session_state["refresh_app"]
