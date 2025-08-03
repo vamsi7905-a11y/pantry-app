@@ -54,12 +54,20 @@ with st.form("entry_form"):
     with col1:
         date = st.date_input("Date", value=st.session_state.form_data["date"])
 
-        apm_id_select = st.selectbox("Select APM ID", options=[""] + existing_apms)
-        apm_id = apm_id_select if apm_id_select else st.text_input("Or enter new APM ID", value=st.session_state.form_data["apm_id"])
+        # APM ID Combo Field
+        st.selectbox("APM ID (pick or type below)", options=[""] + existing_apms, key="apm_select")
+        apm_id = st.text_input("APM ID", value=st.session_state.form_data["apm_id"], key="apm_input")
+        if st.session_state.apm_select:
+            st.session_state.apm_input = st.session_state.apm_select
+            apm_id = st.session_state.apm_select
 
     with col2:
-        name_select = st.selectbox("Select Name", options=[""] + existing_names)
-        name = name_select if name_select else st.text_input("Or enter new Name", value=st.session_state.form_data["name"])
+        # Name Combo Field
+        st.selectbox("Name (pick or type below)", options=[""] + existing_names, key="name_select")
+        name = st.text_input("Name", value=st.session_state.form_data["name"], key="name_input")
+        if st.session_state.name_select:
+            st.session_state.name_input = st.session_state.name_select
+            name = st.session_state.name_select
 
         coupon_no = st.text_input("Coupon Number", value=st.session_state.form_data["coupon_no"])
         if coupon_no and not coupon_no.isdigit():
@@ -74,8 +82,12 @@ with st.form("entry_form"):
         qty = st.number_input("Quantity", min_value=1, value=1)
         action = st.selectbox("Action", ["Issued", "Returned"])
 
-    pantry_select = st.selectbox("Select Pantry Boy", options=[""] + existing_pantries)
-    pantry_boy = pantry_select if pantry_select else st.text_input("Or enter new Pantry Boy Name", value=st.session_state.form_data["pantry_boy"])
+    # Pantry Boy Combo Field
+    st.selectbox("Pantry Boy (pick or type below)", options=[""] + existing_pantries, key="pantry_select")
+    pantry_boy = st.text_input("Pantry Boy", value=st.session_state.form_data["pantry_boy"], key="pantry_input")
+    if st.session_state.pantry_select:
+        st.session_state.pantry_input = st.session_state.pantry_select
+        pantry_boy = st.session_state.pantry_select
 
     submitted = st.form_submit_button("➕ Submit Entry")
 
@@ -84,11 +96,18 @@ if submitted:
         st.error("❌ Coupon Number must be numeric")
     else:
         sheet.append_row([
-            str(date), apm_id.strip(), name.strip(), item, qty, action, coupon_no.strip(), pantry_boy.strip()
+            str(date),
+            apm_id.strip(),
+            name.strip(),
+            item,
+            qty,
+            action,
+            coupon_no.strip(),
+            pantry_boy.strip()
         ])
         st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-        # Retain persistent fields
+        # Store persistent data
         st.session_state.form_data.update({
             "date": date,
             "apm_id": apm_id.strip(),
