@@ -121,9 +121,21 @@ with st.form("rates_form"):
 st.markdown("---")
 st.markdown("### 📥 Download Monthly Bill in Excel Format")
 
+# === Select Month and Year ===
+st.markdown("### 🗓️ Select Month and Year for Bill")
+today = datetime.today()
+selected_year = st.selectbox("Select Year", list(range(2023, today.year + 1)), index=(today.year - 2023))
+selected_month = st.selectbox("Select Month", list(range(1, 13)), index=today.month - 1)
+
+# Filter df by selected month & year
+df_filtered = df[(df["Date"].dt.year == selected_year) & (df["Date"].dt.month == selected_month)]
+if df_filtered.empty:
+    st.warning("No entries for the selected month.")
+
+
 if st.button("Generate Monthly Bill"):
-    issued = df[df["Action"] == "Issued"].copy()
-    returned = df[df["Action"] == "Returned"].copy()
+    issued = df_filtered[df_filtered["Action"] == "Issued"].copy()
+    returned = df_filtered[df_filtered["Action"] == "Returned"].copy()
     returned["Quantity"] = -returned["Quantity"]
     all_entries = pd.concat([issued, returned], ignore_index=True)
 
@@ -167,3 +179,4 @@ if st.button("Generate Monthly Bill"):
         file_name=f"Monthly_Bill_{datetime.today().strftime('%Y%m%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
