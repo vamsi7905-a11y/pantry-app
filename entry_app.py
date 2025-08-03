@@ -55,7 +55,12 @@ with st.form("entry_form"):
         apm_options = sorted(df["APM ID"].dropna().unique())
         apm_id = st.selectbox("APM ID", options=apm_options + ["Enter new..."], index=0)
         if apm_id == "Enter new...":
-            apm_id = st.text_input("Enter new APM ID")
+            apm_id = st.text_input("APM ID", value=st.session_state.entry_apm)
+            if apm_id:
+                suggestions = sorted(set(x for x in df["APM ID"].dropna() if apm_id.lower() in x.lower()))
+                if suggestions:
+                    st.caption("Suggestions: " + ", ".join(suggestions[:5]))
+
 
     with col2:
         name_options = sorted(df["Name"].dropna().unique())
@@ -130,3 +135,4 @@ if not df.empty:
     st.dataframe(filtered_df.reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
