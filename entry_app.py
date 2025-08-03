@@ -6,25 +6,29 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
+# === Auto-clear Item & Quantity after rerun ===
+if "entry_success" in st.session_state and st.session_state.entry_success:
+    st.session_state.entry_item = "-- Select Item --"
+    st.session_state.entry_qty = 0
+    st.session_state.entry_success = False
+    st.rerun()
+
 # === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 
+# === Spreadsheet ===
 SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
 # === Load Data ===
-try:
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
-    df.columns = df.columns.str.strip()
-except Exception as e:
-    st.error(f"❌ Failed to load data: {e}")
-    st.stop()
+data = sheet.get_all_records()
+df = pd.DataFrame(data)
+df.columns = df.columns.str.strip()
 
-# === Set Streamlit Page ===
+# === Streamlit Page ===
 st.set_page_config(page_title="Pantry Entry", layout="wide")
 st.title("🥪 Pantry Coupon Entry System")
 st.markdown("---")
@@ -44,13 +48,6 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
 
-# === Rerun flag ===
-if st.session_state.get("entry_success", False):
-    st.session_state.entry_item = "-- Select Item --"
-    st.session_state.entry_qty = 0
-    st.session_state.entry_success = False
-    st.rerun()
-
 # === Item List ===
 item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W", "Biscuit",
              "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
@@ -58,7 +55,6 @@ item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W",
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
-
 with st.form("entry_form"):
     col1, col2, col3 = st.columns(3)
 
@@ -73,8 +69,8 @@ with st.form("entry_form"):
             st.warning("Coupon Number must be numeric")
 
     with col3:
-        item = st.selectbox("Item", item_list, key="entry_item")
-        qty = st.number_input("Quantity", min_value=0, key="entry_qty")
+        item = st.selectbox("Item", item_list, index=item_list.index(st.session_state.entry_item), key="entry_item")
+        qty = st.number_input("Quantity", min_value=0, value=st.session_state.entry_qty, key="entry_qty")
         action = st.selectbox("Action", ["Issued", "Returned"])
 
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry, placeholder="Type or select Pantry Boy Name")
@@ -95,7 +91,7 @@ if submitted:
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Retain other values for next entry
+            # Preserve other fields
             st.session_state.entry_date = date
             st.session_state.entry_apm = apm_id.strip()
             st.session_state.entry_name = name.strip()
@@ -103,9 +99,8 @@ if submitted:
             st.session_state.entry_pantry = pantry_boy.strip()
             st.session_state.entry_time = datetime.now()
 
-            # Trigger rerun to reset item and qty
+            # Trigger post-success reset
             st.session_state.entry_success = True
-            st.stop()
 
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
