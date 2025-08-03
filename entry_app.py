@@ -16,21 +16,18 @@ SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
 # === Load Data ===
-data = sheet.get_all_records()
-df = pd.DataFrame(data)
-df.columns = df.columns.str.strip()
+try:
+    data = sheet.get_all_records()
+    df = pd.DataFrame(data)
+    df.columns = df.columns.str.strip()
+except Exception as e:
+    st.error(f"❌ Failed to load data: {e}")
+    st.stop()
 
 # === Set Streamlit Page ===
 st.set_page_config(page_title="Pantry Entry", layout="wide")
 st.title("🥪 Pantry Coupon Entry System")
 st.markdown("---")
-
-# === Reset item/qty after rerun ===
-if st.query_params.get("status") == ["success"]:
-    st.session_state.entry_item = "-- Select Item --"
-    st.session_state.entry_qty = 0
-    st.query_params.clear()
-    st.rerun()
 
 # === Session State Defaults ===
 if "entry_time" not in st.session_state:
@@ -46,6 +43,13 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_item = "-- Select Item --"
     st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
+
+# === Rerun flag ===
+if st.session_state.get("entry_success", False):
+    st.session_state.entry_item = "-- Select Item --"
+    st.session_state.entry_qty = 0
+    st.session_state.entry_success = False
+    st.rerun()
 
 # === Item List ===
 item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W", "Biscuit",
@@ -69,8 +73,8 @@ with st.form("entry_form"):
             st.warning("Coupon Number must be numeric")
 
     with col3:
-        item = st.selectbox("Item", item_list, index=item_list.index(st.session_state.entry_item), key="entry_item")
-        qty = st.number_input("Quantity", min_value=0, value=st.session_state.entry_qty, key="entry_qty")
+        item = st.selectbox("Item", item_list, key="entry_item")
+        qty = st.number_input("Quantity", min_value=0, key="entry_qty")
         action = st.selectbox("Action", ["Issued", "Returned"])
 
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry, placeholder="Type or select Pantry Boy Name")
@@ -78,20 +82,20 @@ with st.form("entry_form"):
 
 # === Submit Entry Logic ===
 if submitted:
-    try:
-        if not coupon_no.isdigit():
-            st.error("❌ Coupon Number must be numeric")
-        elif item == "-- Select Item --":
-            st.warning("⚠️ Please select a valid item.")
-        elif qty == 0:
-            st.warning("⚠️ Quantity should be more than 0.")
-        else:
+    if not coupon_no.isdigit():
+        st.error("❌ Coupon Number must be numeric")
+    elif item == "-- Select Item --":
+        st.warning("⚠️ Please select a valid item.")
+    elif qty == 0:
+        st.warning("⚠️ Quantity should be more than 0.")
+    else:
+        try:
             sheet.append_row([
                 str(date), apm_id.strip(), name.strip(), item, qty, action, coupon_no.strip(), pantry_boy.strip()
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Update session values except item & qty (will reset via rerun)
+            # Retain other values for next entry
             st.session_state.entry_date = date
             st.session_state.entry_apm = apm_id.strip()
             st.session_state.entry_name = name.strip()
@@ -99,12 +103,12 @@ if submitted:
             st.session_state.entry_pantry = pantry_boy.strip()
             st.session_state.entry_time = datetime.now()
 
-            # Trigger rerun with success flag to reset item/qty
-            st.query_params["status"] = "success"
+            # Trigger rerun to reset item and qty
+            st.session_state.entry_success = True
             st.stop()
 
-    except Exception as e:
-        st.error(f"❌ Failed to record entry: {e}")
+        except Exception as e:
+            st.error(f"❌ Failed to record entry: {e}")
 
 # === View Entries Section ===
 st.markdown("---")
