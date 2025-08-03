@@ -6,11 +6,6 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# === Auto rerun if 'success' param is set ===
-if st.query_params.get("status") == ["success"]:
-    st.query_params.clear()  # Clear the param
-    st.rerun()
-
 # === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
@@ -20,20 +15,28 @@ client = gspread.authorize(creds)
 SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
-# === Load Existing Data ===
+# === Load Data ===
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
 df.columns = df.columns.str.strip()
 
-# === Set Page ===
+# === Set Streamlit Page ===
 st.set_page_config(page_title="Pantry Entry", layout="wide")
 st.title("🥪 Pantry Coupon Entry System")
 st.markdown("---")
 
-# === Session State Initialization ===
+# === Reset item/qty after rerun ===
+if st.query_params.get("status") == ["success"]:
+    st.session_state.entry_item = "-- Select Item --"
+    st.session_state.entry_qty = 0
+    st.query_params.clear()
+    st.rerun()
+
+# === Session State Defaults ===
 if "entry_time" not in st.session_state:
     st.session_state.entry_time = datetime.now()
 
+# Auto-clear all fields after 10 minutes
 if "entry_date" not in st.session_state or datetime.now() - st.session_state.entry_time > timedelta(minutes=10):
     st.session_state.entry_date = datetime.today().date()
     st.session_state.entry_apm = ""
@@ -63,17 +66,17 @@ with st.form("entry_form"):
         name = st.text_input("Name", value=st.session_state.entry_name, placeholder="Type or select Name")
         coupon_no = st.text_input("Coupon Number", value=st.session_state.entry_coupon)
         if coupon_no and not coupon_no.isdigit():
-            st.warning("⚠️ Coupon Number must be numeric")
+            st.warning("Coupon Number must be numeric")
 
     with col3:
-        item = st.selectbox("Item", item_list, key="entry_item")
-        qty = st.number_input("Quantity", min_value=0, key="entry_qty")
+        item = st.selectbox("Item", item_list, index=item_list.index(st.session_state.entry_item), key="entry_item")
+        qty = st.number_input("Quantity", min_value=0, value=st.session_state.entry_qty, key="entry_qty")
         action = st.selectbox("Action", ["Issued", "Returned"])
 
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry, placeholder="Type or select Pantry Boy Name")
     submitted = st.form_submit_button("➕ Submit Entry")
 
-# === Submission Logic ===
+# === Submit Entry Logic ===
 if submitted:
     try:
         if not coupon_no.isdigit():
@@ -88,11 +91,7 @@ if submitted:
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Reset only item & quantity
-            st.session_state.entry_item = "-- Select Item --"
-            st.session_state.entry_qty = 0
-
-            # Preserve others
+            # Update session values except item & qty (will reset via rerun)
             st.session_state.entry_date = date
             st.session_state.entry_apm = apm_id.strip()
             st.session_state.entry_name = name.strip()
@@ -100,6 +99,7 @@ if submitted:
             st.session_state.entry_pantry = pantry_boy.strip()
             st.session_state.entry_time = datetime.now()
 
+            # Trigger rerun with success flag to reset item/qty
             st.query_params["status"] = "success"
             st.stop()
 
