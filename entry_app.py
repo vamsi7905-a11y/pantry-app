@@ -109,4 +109,6 @@ if submitted:
         st.session_state.last_update = datetime.now()
 
         # Reset item & quantity only
-        st.experimental_rerun()
+        st.stop()  # Safe rerun without crash
+
+
