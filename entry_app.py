@@ -65,24 +65,33 @@ with st.form("entry_form"):
 
     submitted = st.form_submit_button("➕ Submit Entry")
 
-    if submitted:
-        if not coupon_no.isdigit():
-            st.error("❌ Coupon Number must be numeric")
-        else:
-            # Save to sheet
-            sheet.append_row([
-                str(date), apm_id, name, item, qty, action, coupon_no, pantry_boy
-            ])
-            st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Retain form values except item/qty
-            st.session_state.entry_date = date
-            st.session_state.entry_apm = apm_id
-            st.session_state.entry_name = name
-            st.session_state.entry_coupon = coupon_no
-            st.session_state.entry_pantry = pantry_boy
+    if "rerun_flag" not in st.session_state:
+    st.session_state.rerun_flag = False
 
-            st.experimental_rerun()  # clears item & quantity for next entry
+if submitted:
+    if not coupon_no.isdigit():
+        st.error("❌ Coupon Number must be numeric")
+    else:
+        sheet.append_row([
+            str(date), apm_id, name, item, qty, action, coupon_no, pantry_boy
+        ])
+        st.success(f"✅ Entry for {item} ({action}) recorded!")
+
+        # Store values for next entry
+        st.session_state.entry_date = date
+        st.session_state.entry_apm = apm_id
+        st.session_state.entry_name = name
+        st.session_state.entry_coupon = coupon_no
+        st.session_state.entry_pantry = pantry_boy
+
+        # Safe rerun flag
+        st.session_state.rerun_flag = True
+
+# Trigger rerun outside form context
+if st.session_state.rerun_flag:
+    st.session_state.rerun_flag = False
+    st.experimental_rerun()
 
 st.markdown("---")
 
@@ -110,3 +119,4 @@ if not df.empty:
     st.dataframe(filtered_df.reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
