@@ -1,3 +1,5 @@
+# entry_summary.py - Pantry Staff Entry Summary Dashboard
+
 import streamlit as st
 import gspread
 import pandas as pd
@@ -12,40 +14,40 @@ service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 
-# === Load Sheet ===
+# === Open the correct sheet ===
 SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
-# === Load Data ===
+# === Load data ===
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
 df.columns = df.columns.str.strip()
 
-st.set_page_config(page_title="Pantry Entry Summary", layout="wide")
-st.title("📋 Pantry Entry Summary Dashboard")
+st.set_page_config(page_title="Pantry Staff Summary", layout="wide")
+st.title("🥪 Pantry Coupon Entry Summary")
 st.markdown("---")
 
 if df.empty:
-    st.warning("No entries found in the sheet.")
+    st.warning("No entries yet.")
     st.stop()
 
-# === Convert Date column ===
+# === Preprocess ===
 df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
-# === Filters ===
-st.subheader("🔍 Filters")
-c1, c2, c3, c4 = st.columns(4)
+# === Filter Section ===
+st.subheader("🔍 Filter Entries")
+col1, col2, col3, col4 = st.columns(4)
 
-with c1:
-    date_filter = st.selectbox("Date Range", ["Today", "This Week", "This Month", "All"])
+with col1:
+    date_filter = st.selectbox("Show for", ["Today", "This Week", "This Month", "All"])
 
-with c2:
-    apm_filter = st.text_input("Filter by APM ID")
+with col2:
+    apm_filter = st.text_input("APM ID")
 
-with c3:
-    item_filter = st.selectbox("Filter by Item", ["All"] + sorted(df["Item"].unique()))
+with col3:
+    item_filter = st.selectbox("Item", ["All"] + sorted(df["Item"].unique()))
 
-with c4:
+with col4:
     action_filter = st.selectbox("Action", ["All", "Issued", "Returned"])
 
 # === Apply Filters ===
@@ -69,11 +71,13 @@ if item_filter != "All":
 if action_filter != "All":
     df = df[df["Action"] == action_filter]
 
-st.markdown("### ✅ Filtered Entries")
+# === Show Filtered Table ===
+st.markdown("### 📋 Filtered Entries")
 st.dataframe(df.reset_index(drop=True), use_container_width=True)
 
-# === Summary View ===
-st.markdown("### 📦 Net Quantity Summary (Issued - Returned)")
+# === Net Summary ===
+st.markdown("### 📦 Summary (Issued - Returned)")
+
 summary = (
     df.groupby(["APM ID", "Item", "Action"])["Quantity"]
     .sum()
