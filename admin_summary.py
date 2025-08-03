@@ -67,23 +67,45 @@ st.markdown("---")
 st.markdown("### 🔍 Filter Entries")
 filter_option = st.selectbox("Show Entries For:", ["Today", "This Week", "This Month", "All"])
 
-df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-df = df[df["Action"] == "Issued"]
+# Optional filters
+col1, col2 = st.columns(2)
+with col1:
+    filter_apm = st.text_input("Filter by APM ID")
+    filter_name = st.text_input("Filter by Name")
+with col2:
+    filter_item = st.selectbox("Filter by Item", ["All"] + sorted(df["Item"].dropna().unique()))
+    filter_action = st.selectbox("Filter by Action", ["All", "Issued", "Returned"])
 
-today = pd.Timestamp.today().normalize()
+df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
+# Date Filter
 if filter_option == "Today":
-    df = df[df["Date"] == today]
+    df = df[df["Date"] == datetime.today().normalize()]
 elif filter_option == "This Week":
-    start = today - pd.Timedelta(days=today.weekday())
-    df = df[(df["Date"] >= start) & (df["Date"] <= today)]
+    start = datetime.today().normalize() - timedelta(days=datetime.today().weekday())
+    df = df[(df["Date"] >= start) & (df["Date"] <= datetime.today())]
 elif filter_option == "This Month":
-    start = today.replace(day=1)
-    df = df[(df["Date"] >= start) & (df["Date"] <= today)]
+    start = datetime.today().replace(day=1)
+    df = df[(df["Date"] >= start) & (df["Date"] <= datetime.today())]
+
+# Custom filters
+if filter_apm:
+    df = df[df["APM ID"].astype(str).str.contains(filter_apm, case=False)]
+if filter_name:
+    df = df[df["Name"].astype(str).str.contains(filter_name, case=False)]
+if filter_item != "All":
+    df = df[df["Item"] == filter_item]
+if filter_action != "All":
+    df = df[df["Action"] == filter_action]
+
+st.markdown("### 📋 Filtered Entries Table")
+st.dataframe(df.reset_index(drop=True), use_container_width=True)
 
 # === Pivot & Billing ===
 st.markdown("### 🧾 Final Billing with GST")
+df_billing = df[df["Action"] == "Issued"]
 pivot = pd.pivot_table(
-    df,
+    df_billing,
     index=["Date", "APM ID", "Coupon No"],
     columns="Item",
     values="Quantity",
