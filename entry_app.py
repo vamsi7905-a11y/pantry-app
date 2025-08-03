@@ -74,7 +74,15 @@ with st.form("entry_form"):
         qty = st.number_input("Quantity", min_value=1, value=1)
         action = st.selectbox("Action", ["Issued", "Returned"])
 
-    pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.form_data["pantry_boy"])
+   
+    existing_pantries = sorted(df["Pantry Boy"].dropna().astype(str).unique().tolist()) if "Pantry Boy" in df.columns else []
+
+    pantry_boy = st.selectbox(
+        "Pantry Boy Name",
+        options=existing_pantries,
+        index=existing_pantries.index(st.session_state.form_data["pantry_boy"]) if st.session_state.form_data["pantry_boy"] in existing_pantries else 0
+    )
+
     submitted = st.form_submit_button("➕ Submit Entry")
 
 if submitted:
@@ -98,3 +106,4 @@ if submitted:
 
         # Clear only item/qty
         st.experimental_rerun()
+
