@@ -1,14 +1,13 @@
-# === FINAL admin_summary.py ===
 import streamlit as st
 import gspread
 import pandas as pd
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from io import BytesIO
 
-# === Authenticate ===
+# === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
@@ -17,10 +16,9 @@ client = gspread.authorize(creds)
 ENTRY_SHEET = "Pantry_Entries"
 RATES_SHEET = "Rates"
 
-# === Streamlit Config ===
 st.set_page_config(page_title="Admin Panel", layout="wide")
 
-# === Login System ===
+# === Login ===
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -33,7 +31,7 @@ if not st.session_state.logged_in:
             if pwd == st.secrets["ADMIN_PASSWORD"]:
                 st.session_state.logged_in = True
                 st.success("✅ Logged in successfully!")
-                st.stop()
+                st.rerun()
             else:
                 st.error("❌ Incorrect password")
     st.stop()
@@ -43,138 +41,86 @@ st.sidebar.success("✅ Logged in")
 if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
     st.success("✅ Logged out successfully!")
-    st.stop()
+    st.rerun()
 
-# === Load Fresh Data ===
-entries = client.open(ENTRY_SHEET).worksheet("Pantry Entries")
+# === Load Sheets ===
+entries_ws = client.open(ENTRY_SHEET).worksheet("Pantry Entries")
 rates_ws = client.open(ENTRY_SHEET).worksheet(RATES_SHEET)
 
-entry_data = entries.get_all_records()
-df = pd.DataFrame(entry_data)
+df = pd.DataFrame(entries_ws.get_all_records())
 df.columns = df.columns.str.strip()
 if df.empty:
-    st.warning("No data found.")
+    st.warning("⚠️ No data found in Pantry Entries.")
     st.stop()
 
-rates_data = rates_ws.get_all_records()
-rates_df = pd.DataFrame(rates_data)
+rates_df = pd.DataFrame(rates_ws.get_all_records())
 rates_df.columns = rates_df.columns.str.strip()
 rates_dict = dict(zip(rates_df['Item'], rates_df['Rate']))
 
-# === Filter ===
-st.title("📊 Admin Billing Dashboard")
-st.markdown("---")
-st.markdown("### 🔍 Filter Entries")
-filter_option = st.selectbox("Show Entries For:", ["Today", "This Week", "This Month", "All"])
-
-# Optional filters
-col1, col2 = st.columns(2)
-with col1:
-    filter_apm = st.text_input("Filter by APM ID")
-    filter_name = st.text_input("Filter by Name")
-with col2:
-    filter_item = st.selectbox("Filter by Item", ["All"] + sorted(df["Item"].dropna().unique()))
-    filter_action = st.selectbox("Filter by Action", ["All", "Issued", "Returned"])
+# === View & Filter ===
+st.title("📊 Admin Dashboard")
+st.subheader("📋 Pantry Entry Records")
 
 df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
-# Date Filter
-if filter_option == "Today":
-    df = df[df["Date"] == datetime.today().normalize()]
-elif filter_option == "This Week":
-    start = datetime.today().normalize() - timedelta(days=datetime.today().weekday())
-    df = df[(df["Date"] >= start) & (df["Date"] <= datetime.today())]
-elif filter_option == "This Month":
-    start = datetime.today().replace(day=1)
-    df = df[(df["Date"] >= start) & (df["Date"] <= datetime.today())]
+col1, col2 = st.columns(2)
+with col1:
+    apm_filter = st.text_input("🔎 Filter by APM ID")
+    name_filter = st.text_input("🔎 Filter by Name")
+with col2:
+    item_filter = st.selectbox("🔎 Filter by Item", ["All"] + sorted(df["Item"].unique()))
+    action_filter = st.selectbox("🔎 Filter by Action", ["All", "Issued", "Returned"])
 
-# Custom filters
-if filter_apm:
-    df = df[df["APM ID"].astype(str).str.contains(filter_apm, case=False)]
-if filter_name:
-    df = df[df["Name"].astype(str).str.contains(filter_name, case=False)]
-if filter_item != "All":
-    df = df[df["Item"] == filter_item]
-if filter_action != "All":
-    df = df[df["Action"] == filter_action]
+if apm_filter:
+    df = df[df["APM ID"].astype(str).str.contains(apm_filter, case=False)]
+if name_filter:
+    df = df[df["Name"].astype(str).str.contains(name_filter, case=False)]
+if item_filter != "All":
+    df = df[df["Item"] == item_filter]
+if action_filter != "All":
+    df = df[df["Action"] == action_filter]
 
-st.markdown("### 📋 Filtered Entries Table")
 st.dataframe(df.reset_index(drop=True), use_container_width=True)
 
-# === Pivot & Billing ===
-st.markdown("### 🧾 Final Billing with GST")
-df_billing = df[df["Action"] == "Issued"]
-pivot = pd.pivot_table(
-    df_billing,
-    index=["Date", "APM ID", "Coupon No"],
-    columns="Item",
-    values="Quantity",
-    aggfunc="sum",
-    fill_value=0
-).reset_index()
+# === Edit/Delete Entries ===
+st.markdown("### ✏️ Edit or Delete Entry")
 
-amounts = []
-for _, row in pivot.iterrows():
-    total = sum(row.get(item, 0) * rates_dict.get(item, 0) for item in rates_dict)
-    amounts.append(total)
-
-pivot["total amount"] = amounts
-pivot["gst 5%"] = pivot["total amount"] * 0.05
-pivot["total amount after gst"] = pivot["total amount"] + pivot["gst 5%"]
-
-st.dataframe(pivot, use_container_width=True)
-
-# === Download ===
-buffer = BytesIO()
-with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-    pivot.to_excel(writer, index=False, sheet_name="Final Billing")
-
-st.download_button(
-    label="📥 Download Final Bill (Excel)",
-    data=buffer.getvalue(),
-    file_name="Pantry_Final_Billing.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
-
-# === Rates Table ===
-st.markdown("---")
-st.markdown("### 🛠 Item Rates")
-st.dataframe(rates_df, use_container_width=True)
-
-with st.form("add_item"):
-    new_item = st.text_input("Add New Item")
-    new_rate = st.number_input("Rate", min_value=0, step=1)
-    add = st.form_submit_button("Add/Update")
-
-    if add and new_item:
-        existing_items = rates_ws.col_values(1)
-        if new_item in existing_items:
-            row = existing_items.index(new_item) + 1
-            rates_ws.update_cell(row, 2, new_rate)
-            st.success(f"Updated rate for {new_item}.")
-        else:
-            rates_ws.append_row([new_item, new_rate])
-            st.success(f"Added {new_item} to Rates.")
-        st.stop()
-
-# === Edit/Delete Section ===
-st.markdown("---")
-st.markdown("### ✏️ Edit/Delete Entry")
-row_index = st.number_input("Enter Row Index (starts from 0)", min_value=0, max_value=len(df)-1, step=1)
+row_index = st.number_input("Row Index (starts at 0)", min_value=0, max_value=len(df)-1, step=1)
 
 if st.button("🗑️ Delete Entry"):
-    entries.delete_rows(row_index + 2)
-    st.success("Entry deleted. Please refresh.")
+    entries_ws.delete_rows(row_index + 2)
+    st.success("✅ Entry deleted.")
+    st.rerun()
 
-with st.form("update_entry"):
+with st.form("edit_form"):
     new_qty = st.number_input("New Quantity", value=int(df.loc[row_index, "Quantity"]), min_value=1)
-    new_action = st.selectbox("New Action", ["Issued", "Returned"], index=["Issued", "Returned"].index(df.loc[row_index, "Action"]))
-    submit = st.form_submit_button("Update Entry")
-
-    if submit:
+    new_action = st.selectbox("New Action", ["Issued", "Returned"],
+                              index=["Issued", "Returned"].index(df.loc[row_index, "Action"]))
+    update = st.form_submit_button("✅ Update Entry")
+    if update:
         updated_row = df.loc[row_index].tolist()
         updated_row[4] = new_qty
         updated_row[5] = new_action
-        entries.delete_rows(row_index + 2)
-        entries.insert_row(updated_row, row_index + 2)
-        st.success("Entry updated.")
+        entries_ws.delete_rows(row_index + 2)
+        entries_ws.insert_row(updated_row, row_index + 2)
+        st.success("✅ Entry updated.")
+        st.rerun()
+
+# === Rates Section ===
+st.markdown("### 💰 Manage Item Rates")
+st.dataframe(rates_df, use_container_width=True)
+
+with st.form("rates_form"):
+    new_item = st.text_input("Item Name")
+    new_rate = st.number_input("Rate", step=1, min_value=0)
+    submit = st.form_submit_button("➕ Add/Update Rate")
+    if submit and new_item:
+        existing_items = rates_ws.col_values(1)
+        if new_item in existing_items:
+            row_num = existing_items.index(new_item) + 1
+            rates_ws.update_cell(row_num, 2, new_rate)
+            st.success(f"✅ Updated rate for {new_item}")
+        else:
+            rates_ws.append_row([new_item, new_rate])
+            st.success(f"✅ Added {new_item} with rate ₹{new_rate}")
+        st.rerun()
