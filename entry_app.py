@@ -75,20 +75,17 @@ if submitted:
         ])
         st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-        # Save context for next item
+        # Store values for reuse
         st.session_state.entry_date = date
         st.session_state.entry_apm = apm_id
         st.session_state.entry_name = name
         st.session_state.entry_coupon = coupon_no
         st.session_state.entry_pantry = pantry_boy
-
-        # Trigger rerun
         st.session_state.rerun_flag = True
 
-# Safe rerun outside the form
 if st.session_state.rerun_flag:
     st.session_state.rerun_flag = False
-    st.experimental_rerun()
+    st.stop()  # ✅ Safe rerun
 
 st.markdown("---")
 
