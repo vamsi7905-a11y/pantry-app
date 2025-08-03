@@ -1,5 +1,3 @@
-# admin_summary.py (Final Version with Filter + Safe Rerun + Edit/Delete)
-
 import streamlit as st
 import gspread
 import pandas as pd
@@ -55,11 +53,10 @@ if not st.session_state.logged_in:
                 st.error("❌ Incorrect password.")
     st.stop()
 
-# ✅ Safe rerun only after login is complete
-if st.session_state.get("logged_in") and st.session_state.get("refresh_app"):
-    del st.session_state["refresh_app"]
-    st.experimental_rerun()
-
+# ✅ Safe rerun only after login/update
+if st.session_state.get("refresh_app"):
+    st.session_state["refresh_app"] = False
+    st.stop()
 
 # === Logout ===
 st.sidebar.success("✅ Logged in")
@@ -155,7 +152,7 @@ with st.form("add_item"):
             rates_ws.append_row([new_item, new_rate])
             st.success(f"✅ Added {new_item} to Rates.")
 
-        st.session_state["refresh_app"] = True  # ✅ Safe rerun trigger
+        st.session_state["refresh_app"] = True
 
 st.markdown("---")
 
@@ -164,7 +161,7 @@ st.markdown("### ✏️ Edit or Delete Pantry Entry")
 row_index = st.number_input("Enter Row Index (starting from 0)", min_value=0, max_value=len(df) - 1, step=1)
 
 if st.button("🗑️ Delete Entry"):
-    entries.delete_rows(row_index + 2)  # +2 for header row and 0-index
+    entries.delete_rows(row_index + 2)  # +2 for header and 0-index
     st.success("✅ Entry deleted successfully. Please refresh the app.")
 
 with st.form("update_entry_form"):
