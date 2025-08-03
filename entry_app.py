@@ -46,8 +46,8 @@ if df.empty or not all(col in df.columns for col in required_cols):
     existing_apms = []
     existing_names = []
 else:
-    existing_apms = sorted(df["APM ID"].dropna().unique().tolist())
-    existing_names = sorted(df["Name"].dropna().unique().tolist())
+    existing_apms = sorted(df["APM ID"].dropna().astype(str).unique().tolist())
+    existing_names = sorted(df["Name"].dropna().astype(str).unique().tolist())
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -57,12 +57,10 @@ with st.form("entry_form"):
 
     with col1:
         date = st.date_input("Date", value=st.session_state.form_data["date"])
-        apm_id = st.selectbox("APM ID", options=[""] + existing_apms, index=0 if st.session_state.form_data["apm_id"] == "" else existing_apms.index(st.session_state.form_data["apm_id"]) + 1, key="apm_id_input")
-        apm_id = apm_id or st.text_input("Or enter new APM ID")
+        apm_id = st.selectbox("APM ID", options=existing_apms, index=existing_apms.index(st.session_state.form_data["apm_id"]) if st.session_state.form_data["apm_id"] in existing_apms else 0)
 
     with col2:
-        name = st.selectbox("Name", options=[""] + existing_names, index=0 if st.session_state.form_data["name"] == "" else existing_names.index(st.session_state.form_data["name"]) + 1, key="name_input")
-        name = name or st.text_input("Or enter new Name")
+        name = st.selectbox("Name", options=existing_names, index=existing_names.index(st.session_state.form_data["name"]) if st.session_state.form_data["name"] in existing_names else 0)
         coupon_no = st.text_input("Coupon Number", value=st.session_state.form_data["coupon_no"])
         if coupon_no and not coupon_no.isdigit():
             st.warning("Coupon Number must be numeric")
@@ -88,7 +86,7 @@ if submitted:
         ])
         st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-        # Retain only persistent fields
+        # Retain persistent fields
         st.session_state.form_data.update({
             "date": date,
             "apm_id": apm_id.strip(),
@@ -98,5 +96,5 @@ if submitted:
         })
         st.session_state.last_update = datetime.now()
 
-        # Clear item and quantity
+        # Clear only item/qty
         st.experimental_rerun()
