@@ -36,41 +36,45 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_name = ""
     st.session_state.entry_coupon = ""
     st.session_state.entry_pantry = ""
+    st.session_state.entry_item = "-- Select Item --"
+    st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
+
+# === Item List ===
+item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W", "Biscuit",
+             "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
+             "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
 
 with st.form("entry_form"):
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         date = st.date_input("Date", value=st.session_state.entry_date)
         apm_id = st.text_input("APM ID", value=st.session_state.entry_apm, placeholder="Type or select APM ID")
-    
+
     with col2:
         name = st.text_input("Name", value=st.session_state.entry_name, placeholder="Type or select Name")
         coupon_no = st.text_input("Coupon Number", value=st.session_state.entry_coupon)
         if coupon_no and not coupon_no.isdigit():
             st.warning("Coupon Number must be numeric")
-    
+
     with col3:
-        item = st.selectbox("Item", [
-            "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W", "Biscuit",
-            "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
-            "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"
-        ])
-        qty = st.number_input("Quantity", min_value=0, value=0)
+        item = st.selectbox("Item", item_list, index=item_list.index(st.session_state.entry_item))
+        qty = st.number_input("Quantity", min_value=0, value=st.session_state.entry_qty)
         action = st.selectbox("Action", ["Issued", "Returned"])
 
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry, placeholder="Type or select Pantry Boy Name")
-
     submitted = st.form_submit_button("➕ Submit Entry")
 
 # === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
+    elif item == "-- Select Item --":
+        st.warning("⚠️ Please select a valid item.")
     elif qty == 0:
         st.warning("⚠️ Quantity should be more than 0.")
     else:
@@ -79,7 +83,9 @@ if submitted:
         ])
         st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-        # Reset only item & quantity; retain others
+        # Reset only item and qty
+        st.session_state.entry_item = "-- Select Item --"
+        st.session_state.entry_qty = 0
         st.session_state.entry_date = date
         st.session_state.entry_apm = apm_id.strip()
         st.session_state.entry_name = name.strip()
