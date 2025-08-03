@@ -1,42 +1,58 @@
 import streamlit as st
 import gspread
 import pandas as pd
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
 import json
 import os
+import time
+from datetime import datetime
+from oauth2client.service_account import ServiceAccountCredentials
 
-# === Setup Google Sheets Credentials ===
+# === Authenticate Google Sheets ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 
-# === Open Sheet ===
+# === Load Sheet ===
 SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
 # === Load existing data ===
-data = sheet.get_all_records()
-df = pd.DataFrame(data)
+try:
+    data = sheet.get_all_records()
+    df = pd.DataFrame(data)
+    df.columns = df.columns.astype(str).str.strip()
+except Exception as e:
+    st.error("❌ Failed to load data from Google Sheets.")
+    st.stop()
 
 st.set_page_config(page_title="Pantry Entry", layout="wide")
 st.title("🥪 Pantry Coupon Entry System")
 st.markdown("---")
 
-# === Persistent State for Autofill ===
-if "entry_date" not in st.session_state:
-    st.session_state.entry_date = datetime.today().date()
-if "entry_apm" not in st.session_state:
-    st.session_state.entry_apm = ""
-if "entry_name" not in st.session_state:
-    st.session_state.entry_name = ""
-if "entry_coupon" not in st.session_state:
-    st.session_state.entry_coupon = ""
-if "entry_pantry" not in st.session_state:
-    st.session_state.entry_pantry = ""
-if "rerun_flag" not in st.session_state:
-    st.session_state.rerun_flag = False
+# === Setup Persistent State with Timeout ===
+defaults = {
+    "entry_date": datetime.today().date(),
+    "entry_apm": "",
+    "entry_name": "",
+    "entry_coupon": "",
+    "entry_pantry": "",
+    "entry_last_time": time.time()
+}
+
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+# Auto-clear all after 10 minutes
+if time.time() - st.session_state.entry_last_time > 600:
+    for key in ["entry_date", "entry_apm", "entry_name", "entry_coupon", "entry_pantry"]:
+        st.session_state[key] = "" if key != "entry_date" else datetime.today().date()
+    st.session_state.entry_last_time = time.time()
+
+# === Prepare dropdowns from existing data ===
+existing_apms = sorted(df["APM ID"].dropna().unique().tolist())
+existing_names = sorted(df["Name"].dropna().unique().tolist())
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -46,13 +62,13 @@ with st.form("entry_form"):
 
     with col1:
         date = st.date_input("Date", value=st.session_state.entry_date)
-        apm_id = st.text_input("APM ID", value=st.session_state.entry_apm)
+        apm_id = st.selectbox("APM ID", options=[""] + existing_apms, index=0 if not st.session_state.entry_apm else existing_apms.index(st.session_state.entry_apm)+1)
 
     with col2:
-        name = st.text_input("Name", value=st.session_state.entry_name)
+        name = st.selectbox("Name", options=[""] + existing_names, index=0 if not st.session_state.entry_name else existing_names.index(st.session_state.entry_name)+1)
         coupon_no = st.text_input("Coupon Number", value=st.session_state.entry_coupon)
         if coupon_no and not coupon_no.isdigit():
-            st.warning("Coupon Number must be numeric")
+            st.warning("⚠️ Coupon Number must be numeric")
 
     with col3:
         item = st.selectbox("Item", [
@@ -66,50 +82,36 @@ with st.form("entry_form"):
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry)
     submitted = st.form_submit_button("➕ Submit Entry")
 
+# === Submission Handling ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
+    elif not apm_id or not name or not pantry_boy:
+        st.error("❌ APM ID, Name, and Pantry Boy are required.")
     else:
         sheet.append_row([
             str(date), apm_id, name, item, qty, action, coupon_no, pantry_boy
         ])
-        st.success(f"✅ Entry for {item} ({action}) recorded!")
+        st.success(f"✅ {qty} x {item} ({action}) entry saved for Coupon {coupon_no}.")
 
-        # Store values for reuse
+        # Retain other values, clear only item & quantity
         st.session_state.entry_date = date
         st.session_state.entry_apm = apm_id
         st.session_state.entry_name = name
         st.session_state.entry_coupon = coupon_no
         st.session_state.entry_pantry = pantry_boy
-        st.session_state.rerun_flag = True
-
-if st.session_state.rerun_flag:
-    st.session_state.rerun_flag = False
-    st.stop()  # ✅ Safe rerun
+        st.session_state.entry_last_time = time.time()
+        st.experimental_rerun()
 
 st.markdown("---")
 
-# === View & Filter Entries ===
-st.subheader("📋 View Entries")
+# === Optional: Show today's entries (latest first) ===
+st.subheader("📋 Today's Entries (Issued Only)")
+today = datetime.today().date()
+df["Date"] = pd.to_datetime(df["Date"], errors='coerce').dt.date
+today_df = df[(df["Date"] == today) & (df["Action"] == "Issued")]
 
-if not df.empty:
-    with st.expander("🔍 Filter"):
-        col1, col2 = st.columns(2)
-        with col1:
-            filter_apm = st.text_input("Filter by APM ID")
-            filter_item = st.selectbox("Filter by Item", ["All"] + sorted(df["Item"].unique()))
-        with col2:
-            filter_action = st.selectbox("Filter by Action", ["All", "Issued", "Returned"])
-
-    filtered_df = df.copy()
-
-    if filter_apm:
-        filtered_df = filtered_df[filtered_df["APM ID"].str.contains(filter_apm, case=False)]
-    if filter_item != "All":
-        filtered_df = filtered_df[filtered_df["Item"] == filter_item]
-    if filter_action != "All":
-        filtered_df = filtered_df[filtered_df["Action"] == filter_action]
-
-    st.dataframe(filtered_df.reset_index(drop=True), use_container_width=True)
+if not today_df.empty:
+    st.dataframe(today_df[::-1].reset_index(drop=True), use_container_width=True)
 else:
-    st.info("No entries yet.")
+    st.info("No entries recorded for today.")
