@@ -21,12 +21,12 @@ data = sheet.get_all_records()
 df = pd.DataFrame(data)
 df.columns = df.columns.astype(str).str.strip()
 
-# === Streamlit setup ===
+# === Streamlit Setup ===
 st.set_page_config(page_title="Pantry Entry", layout="wide")
 st.title("🥪 Pantry Coupon Entry System")
 st.markdown("---")
 
-# === Persistent State (with timeout) ===
+# === Session State with Timeout (10 min) ===
 if "form_data" not in st.session_state or (
     "last_update" in st.session_state and
     datetime.now() - st.session_state.last_update > timedelta(minutes=10)
@@ -40,14 +40,10 @@ if "form_data" not in st.session_state or (
     }
     st.session_state.last_update = datetime.now()
 
-# === Dropdown options from history ===
-required_cols = ["APM ID", "Name"]
-if df.empty or not all(col in df.columns for col in required_cols):
-    existing_apms = []
-    existing_names = []
-else:
-    existing_apms = sorted(df["APM ID"].dropna().astype(str).unique().tolist())
-    existing_names = sorted(df["Name"].dropna().astype(str).unique().tolist())
+# === Dropdown Options from History ===
+existing_apms = sorted(df["APM ID"].dropna().astype(str).unique().tolist()) if "APM ID" in df.columns else []
+existing_names = sorted(df["Name"].dropna().astype(str).unique().tolist()) if "Name" in df.columns else []
+existing_pantries = sorted(df["Pantry Boy"].dropna().astype(str).unique().tolist()) if "Pantry Boy" in df.columns else []
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -57,10 +53,14 @@ with st.form("entry_form"):
 
     with col1:
         date = st.date_input("Date", value=st.session_state.form_data["date"])
-        apm_id = st.selectbox("APM ID", options=existing_apms, index=existing_apms.index(st.session_state.form_data["apm_id"]) if st.session_state.form_data["apm_id"] in existing_apms else 0)
+
+        apm_id_select = st.selectbox("Select APM ID", options=[""] + existing_apms)
+        apm_id = apm_id_select if apm_id_select else st.text_input("Or enter new APM ID", value=st.session_state.form_data["apm_id"])
 
     with col2:
-        name = st.selectbox("Name", options=existing_names, index=existing_names.index(st.session_state.form_data["name"]) if st.session_state.form_data["name"] in existing_names else 0)
+        name_select = st.selectbox("Select Name", options=[""] + existing_names)
+        name = name_select if name_select else st.text_input("Or enter new Name", value=st.session_state.form_data["name"])
+
         coupon_no = st.text_input("Coupon Number", value=st.session_state.form_data["coupon_no"])
         if coupon_no and not coupon_no.isdigit():
             st.warning("Coupon Number must be numeric")
@@ -74,14 +74,8 @@ with st.form("entry_form"):
         qty = st.number_input("Quantity", min_value=1, value=1)
         action = st.selectbox("Action", ["Issued", "Returned"])
 
-   
-    existing_pantries = sorted(df["Pantry Boy"].dropna().astype(str).unique().tolist()) if "Pantry Boy" in df.columns else []
-
-    pantry_boy = st.selectbox(
-        "Pantry Boy Name",
-        options=existing_pantries,
-        index=existing_pantries.index(st.session_state.form_data["pantry_boy"]) if st.session_state.form_data["pantry_boy"] in existing_pantries else 0
-    )
+    pantry_select = st.selectbox("Select Pantry Boy", options=[""] + existing_pantries)
+    pantry_boy = pantry_select if pantry_select else st.text_input("Or enter new Pantry Boy Name", value=st.session_state.form_data["pantry_boy"])
 
     submitted = st.form_submit_button("➕ Submit Entry")
 
@@ -104,6 +98,5 @@ if submitted:
         })
         st.session_state.last_update = datetime.now()
 
-        # Clear only item/qty
+        # Reset item and quantity only
         st.experimental_rerun()
-
