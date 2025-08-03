@@ -32,7 +32,8 @@ if not st.session_state.logged_in:
         if login:
             if pwd == st.secrets["ADMIN_PASSWORD"]:
                 st.session_state.logged_in = True
-                st.experimental_rerun()
+                st.success("✅ Logged in successfully!")
+                st.stop()
             else:
                 st.error("❌ Incorrect password")
     st.stop()
@@ -41,7 +42,8 @@ if not st.session_state.logged_in:
 st.sidebar.success("✅ Logged in")
 if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
-    st.experimental_rerun()
+    st.success("✅ Logged out successfully!")
+    st.stop()
 
 # === Load Fresh Data ===
 entries = client.open(ENTRY_SHEET).worksheet("Pantry Entries")
