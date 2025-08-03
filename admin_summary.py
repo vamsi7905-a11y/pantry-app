@@ -51,7 +51,7 @@ if not st.session_state.logged_in:
             if pwd == st.secrets["ADMIN_PASSWORD"]:
                 st.session_state.logged_in = True
                 st.success("✅ Logged in successfully.")
-                st.experimental_rerun()
+                st.stop()  # ✅ Safe rerun on next load
             else:
                 st.error("❌ Incorrect password.")
     st.stop()
@@ -59,13 +59,13 @@ if not st.session_state.logged_in:
 # === Safe Refresh ===
 if st.session_state.get("refresh_app"):
     st.session_state["refresh_app"] = False
-    st.experimental_rerun()
+    st.stop()
 
 # === Sidebar ===
 st.sidebar.success("✅ Logged in")
 if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
-    st.experimental_rerun()
+    st.stop()
 
 st.title("📊 Admin Billing Dashboard")
 st.markdown("---")
@@ -161,6 +161,7 @@ with st.form("add_item_form"):
             rates_ws.append_row([new_item, new_rate])
             st.success(f"✅ Added new item '{new_item}' with rate ₹{new_rate}.")
         st.session_state["refresh_app"] = True
+        st.stop()
 
 st.markdown("---")
 
@@ -178,6 +179,7 @@ if st.button("🗑️ Delete Entry"):
     entries_ws.delete_rows(row_index + 2)  # +2 for header and 0-based index
     st.success("✅ Entry deleted successfully.")
     st.session_state["refresh_app"] = True
+    st.stop()
 
 # Update
 with st.form("update_form"):
@@ -197,3 +199,4 @@ with st.form("update_form"):
         entries_ws.insert_row(ordered_data, row_index + 2)
         st.success("✅ Entry updated successfully.")
         st.session_state["refresh_app"] = True
+        st.stop()
