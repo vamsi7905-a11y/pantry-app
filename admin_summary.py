@@ -16,7 +16,6 @@ client = gspread.authorize(creds)
 ENTRY_SHEET = "Pantry_Entries"
 RATES_SHEET = "Rates"
 
-# === Page Setup ===
 st.set_page_config(page_title="Admin Panel", layout="wide")
 
 # === Login ===
@@ -31,6 +30,7 @@ if not st.session_state.logged_in:
         if login:
             if pwd == st.secrets["ADMIN_PASSWORD"]:
                 st.session_state.logged_in = True
+                st.success("✅ Logged in successfully!")
                 st.rerun()
             else:
                 st.error("❌ Incorrect password")
@@ -40,6 +40,7 @@ if not st.session_state.logged_in:
 st.sidebar.success("✅ Logged in")
 if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
+    st.success("✅ Logged out successfully!")
     st.rerun()
 
 # === Load Sheets ===
@@ -52,19 +53,23 @@ if df.empty:
     st.warning("⚠️ No data found in Pantry Entries.")
     st.stop()
 
-df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-df["Coupon No"] = df["Coupon No"].astype(str).str.strip()
-df["Rate"] = df["Item"].map(dict(rates_ws.get_all_values()[1:]))
+rates_df = pd.DataFrame(rates_ws.get_all_records())
+rates_df.columns = rates_df.columns.str.strip()
+rates_dict = dict(zip(rates_df['Item'], rates_df['Rate']))
 
-# === Apply Filter ===
+# === View & Filter ===
 st.title("📊 Admin Dashboard")
+st.subheader("📋 Pantry Entry Records")
+
+df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+
 col1, col2 = st.columns(2)
 with col1:
-    apm_filter = st.text_input("Filter by APM ID")
-    name_filter = st.text_input("Filter by Name")
+    apm_filter = st.text_input("🔎 Filter by APM ID")
+    name_filter = st.text_input("🔎 Filter by Name")
 with col2:
-    item_filter = st.selectbox("Filter by Item", ["All"] + sorted(df["Item"].unique()))
-    action_filter = st.selectbox("Filter by Action", ["All", "Issued", "Returned"])
+    item_filter = st.selectbox("🔎 Filter by Item", ["All"] + sorted(df["Item"].unique()))
+    action_filter = st.selectbox("🔎 Filter by Action", ["All", "Issued", "Returned"])
 
 if apm_filter:
     df = df[df["APM ID"].astype(str).str.contains(apm_filter, case=False)]
@@ -77,41 +82,45 @@ if action_filter != "All":
 
 st.dataframe(df.reset_index(drop=True), use_container_width=True)
 
-# === Bill Format Matching Uploaded Sheet ===
-st.markdown("### 📥 Download Monthly Bill in Excel Format")
+# === Edit/Delete Entries ===
+st.markdown("### ✏️ Edit or Delete Entry")
 
-df["Quantity"] = df["Quantity"].astype(float)
-df["Rate"] = df["Item"].map(lambda x: float(dict(rates_ws.get_all_records()).get(x, 0)))
-df["Signed Qty"] = df.apply(lambda row: -row["Quantity"] if row["Action"] == "Returned" else row["Quantity"], axis=1)
+row_index = st.number_input("Row Index (starts at 0)", min_value=0, max_value=len(df)-1, step=1)
 
-# Sum signed quantities
-grouped = df.groupby(["Date", "APM ID", "Name", "Coupon No", "Item"], as_index=False)["Signed Qty"].sum()
+if st.button("🗑️ Delete Entry"):
+    entries_ws.delete_rows(row_index + 2)
+    st.success("✅ Entry deleted.")
+    st.rerun()
 
-# Add rate and tm
-grouped["Rate"] = grouped["Item"].map(dict(rates_ws.get_all_records()))
-grouped["Rate"] = grouped["Rate"].astype(float)
-grouped["tm"] = grouped["Signed Qty"] * grouped["Rate"]
+with st.form("edit_form"):
+    new_qty = st.number_input("New Quantity", value=int(df.loc[row_index, "Quantity"]), min_value=1)
+    new_action = st.selectbox("New Action", ["Issued", "Returned"],
+                              index=["Issued", "Returned"].index(df.loc[row_index, "Action"]))
+    update = st.form_submit_button("✅ Update Entry")
+    if update:
+        updated_row = df.loc[row_index].tolist()
+        updated_row[4] = new_qty
+        updated_row[5] = new_action
+        entries_ws.delete_rows(row_index + 2)
+        entries_ws.insert_row(updated_row, row_index + 2)
+        st.success("✅ Entry updated.")
+        st.rerun()
 
-# Reorder and rename to match your format
-final_bill = grouped.rename(columns={
-    "Date": "Date",
-    "APM ID": "APM ID",
-    "Name": "Name",
-    "Coupon No": "Coupon Number",
-    "Item": "Item",
-    "Signed Qty": "Qty",
-    "Rate": "Rate",
-    "tm": "TM"
-})[["Date", "APM ID", "Name", "Coupon Number", "Item", "Qty", "Rate", "TM"]]
+# === Rates Section ===
+st.markdown("### 💰 Manage Item Rates")
+st.dataframe(rates_df, use_container_width=True)
 
-# === Export to Excel ===
-buffer = BytesIO()
-with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-    final_bill.to_excel(writer, index=False, sheet_name="Monthly Bill")
-
-st.download_button(
-    label="📁 Download Monthly Bill Excel",
-    data=buffer.getvalue(),
-    file_name="Monthly_Bill.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+with st.form("rates_form"):
+    new_item = st.text_input("Item Name")
+    new_rate = st.number_input("Rate", step=1, min_value=0)
+    submit = st.form_submit_button("➕ Add/Update Rate")
+    if submit and new_item:
+        existing_items = rates_ws.col_values(1)
+        if new_item in existing_items:
+            row_num = existing_items.index(new_item) + 1
+            rates_ws.update_cell(row_num, 2, new_rate)
+            st.success(f"✅ Updated rate for {new_item}")
+        else:
+            rates_ws.append_row([new_item, new_rate])
+            st.success(f"✅ Added {new_item} with rate ₹{new_rate}")
+        st.rerun()
