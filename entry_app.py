@@ -6,6 +6,12 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
+# Auto rerun if 'success' param is set
+if st.experimental_get_query_params().get("status") == ["success"]:
+    st.experimental_set_query_params()  # Clear the param
+    st.rerun()
+
+
 # === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
@@ -69,6 +75,8 @@ with st.form("entry_form"):
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry, placeholder="Type or select Pantry Boy Name")
     submitted = st.form_submit_button("➕ Submit Entry")
 
+
+
 # === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
@@ -93,7 +101,9 @@ if submitted:
         st.session_state.entry_pantry = pantry_boy.strip()
         st.session_state.entry_time = datetime.now()
 
-        st.rerun()
+        # Let the user briefly see success message, then rerun
+        st.experimental_set_query_params(status="success")
+        st.stop()  # Safer than immediate st.rerun()
 
 # === View Entries Section ===
 st.markdown("---")
@@ -103,3 +113,4 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
