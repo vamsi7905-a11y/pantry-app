@@ -24,7 +24,7 @@ st.set_page_config(page_title="Pantry Entry", layout="wide")
 st.title("🥪 Pantry Coupon Entry System")
 st.markdown("---")
 
-# === Initialize persistent state for autofill ===
+# === Persistent State for Autofill ===
 if "entry_date" not in st.session_state:
     st.session_state.entry_date = datetime.today().date()
 if "entry_apm" not in st.session_state:
@@ -35,6 +35,8 @@ if "entry_coupon" not in st.session_state:
     st.session_state.entry_coupon = ""
 if "entry_pantry" not in st.session_state:
     st.session_state.entry_pantry = ""
+if "rerun_flag" not in st.session_state:
+    st.session_state.rerun_flag = False
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -62,12 +64,7 @@ with st.form("entry_form"):
         action = st.selectbox("Action", ["Issued", "Returned"])
 
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry)
-
     submitted = st.form_submit_button("➕ Submit Entry")
-
-
-    if "rerun_flag" not in st.session_state:
-    st.session_state.rerun_flag = False
 
 if submitted:
     if not coupon_no.isdigit():
@@ -78,17 +75,17 @@ if submitted:
         ])
         st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-        # Store values for next entry
+        # Save context for next item
         st.session_state.entry_date = date
         st.session_state.entry_apm = apm_id
         st.session_state.entry_name = name
         st.session_state.entry_coupon = coupon_no
         st.session_state.entry_pantry = pantry_boy
 
-        # Safe rerun flag
+        # Trigger rerun
         st.session_state.rerun_flag = True
 
-# Trigger rerun outside form context
+# Safe rerun outside the form
 if st.session_state.rerun_flag:
     st.session_state.rerun_flag = False
     st.experimental_rerun()
@@ -119,4 +116,3 @@ if not df.empty:
     st.dataframe(filtered_df.reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
-
