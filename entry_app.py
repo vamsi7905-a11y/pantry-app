@@ -56,7 +56,7 @@ with st.form("entry_form"):
             "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
             "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"
         ])
-        qty = st.number_input("Quantity", min_value=1, value=1)
+        qty = st.number_input("Quantity", min_value=1, value=0)
         action = st.selectbox("Action", ["Issued", "Returned"])
 
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry, placeholder="Type or select Pantry Boy Name")
@@ -90,3 +90,4 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
