@@ -95,10 +95,11 @@ if submitted:
         st.warning("⚠️ Quantity should be more than 0.")
     else:
         try:
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            entry_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            formatted_date = date.strftime("%Y-%m-%d")  # ⬅️ Force date format as YYYY-MM-DD
             sheet.append_row([
-                date.strftime("%Y-%m-%d"), apm_id.strip(), name.strip(), item, qty, action,
-                coupon_no.strip(), pantry_boy.strip(), now  # 'Entry Time'
+                formatted_date, apm_id.strip(), name.strip(), item, qty, action,
+                coupon_no.strip(), pantry_boy.strip(), entry_time
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
