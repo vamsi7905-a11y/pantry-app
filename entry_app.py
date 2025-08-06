@@ -57,14 +57,17 @@ item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W",
 st.subheader("📥 New Entry")
 with st.form("entry_form"):
     col1, col2, col3 = st.columns(3)
+
     with col1:
         date = st.date_input("Date", value=st.session_state.entry_date)
         apm_id = st.text_input("APM ID", value=st.session_state.entry_apm)
+
     with col2:
         name = st.text_input("Name", value=st.session_state.entry_name)
         coupon_no = st.text_input("Coupon Number", value=st.session_state.entry_coupon)
         if coupon_no and not coupon_no.isdigit():
             st.warning("Coupon Number must be numeric")
+
     with col3:
         item = st.selectbox("Item", item_list, index=item_list.index(st.session_state.entry_item), key="entry_item")
         qty = st.number_input("Quantity", min_value=0, value=st.session_state.entry_qty, key="entry_qty")
@@ -73,6 +76,7 @@ with st.form("entry_form"):
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry)
     submitted = st.form_submit_button("➕ Submit Entry")
 
+# === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
@@ -82,9 +86,10 @@ if submitted:
         st.warning("⚠️ Quantity should be more than 0.")
     else:
         try:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             sheet.append_row([
-                str(date), apm_id.strip(), name.strip(), item, qty, action, coupon_no.strip(), pantry_boy.strip(), timestamp
+                date.strftime("%Y-%m-%d"), apm_id.strip(), name.strip(), item, qty, action,
+                coupon_no.strip(), pantry_boy.strip(), now  # 'Entry Time'
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
@@ -96,14 +101,15 @@ if submitted:
             st.session_state.entry_pantry = pantry_boy.strip()
             st.session_state.entry_time = datetime.now()
 
-            # Trigger post-success reset
             st.session_state.entry_success = True
+
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
 
 # === View Entries Section ===
 st.markdown("---")
 st.subheader("📄 Recent Entries")
+
 if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
