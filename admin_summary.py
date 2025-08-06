@@ -56,7 +56,8 @@ if df.empty:
     st.warning("⚠️ No data found.")
     st.stop()
 
-df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+# === Fix Date column ===
+df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
 df["Coupon No"] = df["Coupon No"].astype(str)
 
 # === Dashboard ===
@@ -92,12 +93,12 @@ if st.button("🗑️ Delete Entry"):
     st.rerun()
 
 with st.form("edit_form"):
-    new_qty = st.number_input("New Quantity", value=int(df.loc[row_index, "Quantity"]), min_value=1)
+    new_qty = st.number_input("New Quantity", value=int(df.iloc[row_index]["Quantity"]), min_value=1)
     new_action = st.selectbox("New Action", ["Issued", "Returned"],
-                              index=["Issued", "Returned"].index(df.loc[row_index, "Action"]))
+                              index=["Issued", "Returned"].index(df.iloc[row_index]["Action"]))
     update = st.form_submit_button("✅ Update Entry")
     if update:
-        row = df.loc[row_index].tolist()
+        row = df.iloc[row_index].tolist()
         row[4] = new_qty
         row[5] = new_action
         entries_ws.delete_rows(row_index + 2)
@@ -131,7 +132,7 @@ today = datetime.today()
 selected_year = st.selectbox("Select Year", list(range(2023, today.year + 1)), index=today.year - 2023)
 selected_month = st.selectbox("Select Month", list(range(1, 13)), index=today.month - 1)
 
-df_month = df[(df["Date"].dt.year == selected_year) & (df["Date"].dt.month == selected_month)]
+df_month = df[(pd.to_datetime(df["Date"]).dt.year == selected_year) & (pd.to_datetime(df["Date"]).dt.month == selected_month)]
 
 if df_month.empty:
     st.warning("⚠️ No entries found for selected month.")
@@ -152,7 +153,7 @@ if st.button("📁 Generate & Download Bill"):
     item_names = list(rates_dict.keys())
     bill_rows = []
     for (dt, apm, coup), grp in summary.groupby(["Date", "APM ID", "Coupon No"]):
-        row = {"DATE": dt.date(), "APM ID": apm, "COUPON NO": coup}
+        row = {"DATE": dt, "APM ID": apm, "COUPON NO": coup}
         total = 0
         for item in item_names:
             qty = grp.loc[grp["Item"] == item, "Quantity"].sum() if item in grp["Item"].values else 0
