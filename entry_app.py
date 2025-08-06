@@ -26,7 +26,16 @@ sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 # === Load Data ===
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
-df.columns = df.columns.str.strip()
+
+# Safe column assignment if data is empty
+expected_columns = ["Date", "APM ID", "Name", "Item", "Quantity", "Action", "Coupon No", "Pantry Boy", "Entry Time"]
+if df.empty:
+    df = pd.DataFrame(columns=expected_columns)
+else:
+    try:
+        df.columns = df.columns.str.strip()
+    except Exception:
+        df.columns = expected_columns
 
 # === Streamlit Page ===
 st.set_page_config(page_title="Pantry Entry", layout="wide")
@@ -100,7 +109,6 @@ if submitted:
             st.session_state.entry_coupon = coupon_no.strip()
             st.session_state.entry_pantry = pantry_boy.strip()
             st.session_state.entry_time = datetime.now()
-
             st.session_state.entry_success = True
 
         except Exception as e:
