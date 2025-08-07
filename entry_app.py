@@ -6,30 +6,21 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Load PIN from Streamlit secrets or environment variable
+# Load PIN from environment variable
 ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
 
-# Use a flag to check if PIN was already verified
+# Initialize session state
 if "pin_verified" not in st.session_state:
     st.session_state.pin_verified = False
 
-# Show PIN input only if not yet verified
 if not st.session_state.pin_verified:
     pin_input = st.text_input("🔐 Enter Access PIN", type="password")
     if pin_input == ENTRY_APP_PIN:
         st.session_state.pin_verified = True
-        st.success("✅ Access Granted")
-        st.experimental_rerun()  # Rerun to hide PIN field
+        st.experimental_rerun()  # Run again to hide PIN field
     else:
         st.warning("Please enter a valid PIN to access the Entry Form.")
         st.stop()
-
-# === Auto-clear Item & Quantity after rerun ===
-if "entry_success" in st.session_state and st.session_state.entry_success:
-    st.session_state.entry_item = "-- Select Item --"
-    st.session_state.entry_qty = 0
-    st.session_state.entry_success = False
-    st.rerun()
 
 # === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -75,7 +66,7 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
 
-# === Item List from Google Sheet ===
+# === Load Item List from Rates Sheet ===
 try:
     items_sheet = client.open(SHEET_NAME).worksheet("Rates")
     items_data = items_sheet.get_all_records()
@@ -86,6 +77,12 @@ except Exception as e:
     item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg Sandwich", "Chicken Sandwitch", "Biscuit",
                  "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
                  "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
+
+# === Auto-clear Item & Quantity after submission rerun ===
+if "entry_success" in st.session_state and st.session_state.entry_success:
+    st.session_state.entry_item = "-- Select Item --"
+    st.session_state.entry_qty = 0
+    st.session_state.entry_success = False
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -121,14 +118,14 @@ if submitted:
     else:
         try:
             entry_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            formatted_date = date.strftime("%d-%m-%Y")  # ⬅️ New format: DD-MM-YYYY
+            formatted_date = date.strftime("%d-%m-%Y")
             sheet.append_row([
                 formatted_date, apm_id.strip(), name.strip(), item, qty, action,
                 coupon_no.strip(), pantry_boy.strip(), entry_time
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Preserve other fields
+            # Save field values except item/qty
             st.session_state.entry_date = date
             st.session_state.entry_apm = apm_id.strip()
             st.session_state.entry_name = name.strip()
@@ -143,7 +140,6 @@ if submitted:
 # === View Entries Section ===
 st.markdown("---")
 st.subheader("📄 Recent Entries")
-
 if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
