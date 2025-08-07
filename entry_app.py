@@ -6,6 +6,16 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
+# Load PIN from Streamlit secrets or environment variable
+ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
+
+# Ask user to enter PIN before accessing anything
+pin_input = st.text_input("🔐 Enter Access PIN", type="password", key="entry_pin")
+
+if pin_input != ENTRY_APP_PIN:
+    st.warning("Please enter a valid PIN to access the Entry Form.")
+    st.stop()
+
 # === Auto-clear Item & Quantity after rerun ===
 if "entry_success" in st.session_state and st.session_state.entry_success:
     st.session_state.entry_item = "-- Select Item --"
@@ -143,6 +153,7 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
 
 
