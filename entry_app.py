@@ -6,23 +6,26 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Load PIN from env variable (or set default empty)
-ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
-
-# Set page config
+# === Config ===
 st.set_page_config(page_title="Pantry Entry", layout="wide")
 st.title("🥪 Pantry Coupon Entry System")
 st.markdown("---")
 
-# === PIN Validation ===
+# === Load PIN from environment ===
+ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
+
+# === Read from query params (new way) ===
+query_params = st.query_params
+authenticated = query_params.get("auth", "0") == "1"
+
 if "pin_authenticated" not in st.session_state:
-    st.session_state.pin_authenticated = False
+    st.session_state.pin_authenticated = authenticated
 
 if not st.session_state.pin_authenticated:
     pin_input = st.text_input("🔐 Enter Access PIN", type="password")
     if pin_input == ENTRY_APP_PIN:
         st.session_state.pin_authenticated = True
-        st.experimental_set_query_params(auth="1")  # Optional: for page refresh hiding PIN
+        st.query_params["auth"] = "1"  # Update URL to persist auth
         st.success("Access granted! Loading form...")
         st.stop()
     else:
@@ -42,15 +45,12 @@ service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 
-# === Spreadsheet ===
+# === Spreadsheet & Data ===
 SHEET_NAME = "Pantry_Entries"
 sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 
-# === Load Data ===
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
-
-# Safe column assignment if data is empty
 expected_columns = ["Date", "APM ID", "Name", "Item", "Quantity", "Action", "Coupon No", "Pantry Boy", "Entry Time"]
 if df.empty:
     df = pd.DataFrame(columns=expected_columns)
@@ -64,7 +64,6 @@ else:
 if "entry_time" not in st.session_state:
     st.session_state.entry_time = datetime.now()
 
-# Auto-clear all fields after 10 minutes
 if "entry_date" not in st.session_state or datetime.now() - st.session_state.entry_time > timedelta(minutes=10):
     st.session_state.entry_date = datetime.today().date()
     st.session_state.entry_apm = ""
@@ -75,7 +74,7 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
 
-# === Item List from Google Sheet ===
+# === Load Item List from Sheet ===
 try:
     items_sheet = client.open(SHEET_NAME).worksheet("Rates")
     items_data = items_sheet.get_all_records()
@@ -110,7 +109,7 @@ with st.form("entry_form"):
     pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry)
     submitted = st.form_submit_button("➕ Submit Entry")
 
-# === Submit Entry Logic ===
+# === Submit Logic ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
@@ -140,7 +139,7 @@ if submitted:
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
 
-# === View Entries Section ===
+# === Recent Entries ===
 st.markdown("---")
 st.subheader("📄 Recent Entries")
 
