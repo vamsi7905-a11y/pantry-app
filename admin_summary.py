@@ -48,17 +48,24 @@ if st.sidebar.button("🚪 Logout"):
 # === Load Data ===
 df = pd.DataFrame(entries_ws.get_all_records())
 df.columns = df.columns.str.strip()
-rates_df = pd.DataFrame(rates_ws.get_all_records())
-rates_df.columns = rates_df.columns.str.strip()
-rates_dict = dict(zip(rates_df["Item"], rates_df["Rate"]))
 
-if df.empty:
+# === Handle empty sheet safely ===
+if df.empty or df.isnull().all().all():
     st.warning("⚠️ No data found.")
     st.stop()
 
-# === Fix Date column ===
-df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
+# === Fix Date column safely ===
+try:
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+except Exception as e:
+    st.warning(f"⚠️ Error parsing Date column: {e}")
+
 df["Coupon No"] = df["Coupon No"].astype(str)
+
+# === Rates ===
+rates_df = pd.DataFrame(rates_ws.get_all_records())
+rates_df.columns = rates_df.columns.str.strip()
+rates_dict = dict(zip(rates_df["Item"], rates_df["Rate"]))
 
 # === Dashboard ===
 st.title("📊 Admin Dashboard")
