@@ -10,7 +10,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
 
 # Ask user to enter PIN before accessing anything
-pin_input = st.text_input("🔐 Enter Access PIN", type="password", key="entry_pin")
+pin_input = st.text_input("🔐 Enter Access PIN", type="password")
+
+
 
 if pin_input != ENTRY_APP_PIN:
     st.warning("Please enter a valid PIN to access the Entry Form.")
@@ -153,6 +155,7 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
 
 
