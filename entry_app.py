@@ -6,21 +6,35 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Load PIN from environment variable
+# Load PIN from env variable (or set default empty)
 ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
 
-# Initialize session state
-if "pin_verified" not in st.session_state:
-    st.session_state.pin_verified = False
+# Set page config
+st.set_page_config(page_title="Pantry Entry", layout="wide")
+st.title("🥪 Pantry Coupon Entry System")
+st.markdown("---")
 
-if not st.session_state.pin_verified:
+# === PIN Validation ===
+if "pin_authenticated" not in st.session_state:
+    st.session_state.pin_authenticated = False
+
+if not st.session_state.pin_authenticated:
     pin_input = st.text_input("🔐 Enter Access PIN", type="password")
     if pin_input == ENTRY_APP_PIN:
-        st.session_state.pin_verified = True
-        st.experimental_rerun()  # Run again to hide PIN field
-    else:
-        st.warning("Please enter a valid PIN to access the Entry Form.")
+        st.session_state.pin_authenticated = True
+        st.experimental_set_query_params(auth="1")  # Optional: for page refresh hiding PIN
+        st.success("Access granted! Loading form...")
         st.stop()
+    else:
+        if pin_input:
+            st.warning("Please enter a valid PIN to access the Entry Form.")
+        st.stop()
+
+# === Auto-clear Item & Quantity after rerun ===
+if "entry_success" in st.session_state and st.session_state.entry_success:
+    st.session_state.entry_item = "-- Select Item --"
+    st.session_state.entry_qty = 0
+    st.session_state.entry_success = False
 
 # === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -46,11 +60,6 @@ else:
     except Exception:
         df.columns = expected_columns
 
-# === Streamlit Page ===
-st.set_page_config(page_title="Pantry Entry", layout="wide")
-st.title("🥪 Pantry Coupon Entry System")
-st.markdown("---")
-
 # === Session State Defaults ===
 if "entry_time" not in st.session_state:
     st.session_state.entry_time = datetime.now()
@@ -66,7 +75,7 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
 
-# === Load Item List from Rates Sheet ===
+# === Item List from Google Sheet ===
 try:
     items_sheet = client.open(SHEET_NAME).worksheet("Rates")
     items_data = items_sheet.get_all_records()
@@ -77,12 +86,6 @@ except Exception as e:
     item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg Sandwich", "Chicken Sandwitch", "Biscuit",
                  "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
                  "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
-
-# === Auto-clear Item & Quantity after submission rerun ===
-if "entry_success" in st.session_state and st.session_state.entry_success:
-    st.session_state.entry_item = "-- Select Item --"
-    st.session_state.entry_qty = 0
-    st.session_state.entry_success = False
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -125,7 +128,7 @@ if submitted:
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Save field values except item/qty
+            # Preserve other fields
             st.session_state.entry_date = date
             st.session_state.entry_apm = apm_id.strip()
             st.session_state.entry_name = name.strip()
@@ -140,6 +143,7 @@ if submitted:
 # === View Entries Section ===
 st.markdown("---")
 st.subheader("📄 Recent Entries")
+
 if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
