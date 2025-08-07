@@ -56,7 +56,7 @@ if df.empty or df.isnull().all().all():
 
 # === Fix Date column safely ===
 try:
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.strftime("%d-%m-%Y")
 except Exception as e:
     st.warning(f"⚠️ Error parsing Date column: {e}")
 
@@ -191,3 +191,4 @@ if st.button("📁 Generate & Download Bill"):
         file_name=f"Monthly_Bill_{selected_year}_{selected_month:02}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
