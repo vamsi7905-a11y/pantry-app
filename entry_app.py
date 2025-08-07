@@ -57,10 +57,16 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
 
+
+# Dynamically fetch unique item names from the sheet
+item_column = df["Item"].dropna().unique().tolist()
+item_column = sorted([item.strip() for item in item_column if item.strip()])  # Clean and sort
+item_list = ["-- Select Item --"] + item_column
+
 # === Item List ===
-item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W", "Biscuit",
-             "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
-             "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
+#item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg S/W", "Non S/W", "Biscuit",
+ #            "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
+  #           "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -123,4 +129,5 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
