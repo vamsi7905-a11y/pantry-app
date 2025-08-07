@@ -9,14 +9,20 @@ from oauth2client.service_account import ServiceAccountCredentials
 # Load PIN from Streamlit secrets or environment variable
 ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
 
-# Ask user to enter PIN before accessing anything
-pin_input = st.text_input("🔐 Enter Access PIN", type="password")
+# Use a flag to check if PIN was already verified
+if "pin_verified" not in st.session_state:
+    st.session_state.pin_verified = False
 
-
-
-if pin_input != ENTRY_APP_PIN:
-    st.warning("Please enter a valid PIN to access the Entry Form.")
-    st.stop()
+# Show PIN input only if not yet verified
+if not st.session_state.pin_verified:
+    pin_input = st.text_input("🔐 Enter Access PIN", type="password")
+    if pin_input == ENTRY_APP_PIN:
+        st.session_state.pin_verified = True
+        st.success("✅ Access Granted")
+        st.experimental_rerun()  # Rerun to hide PIN field
+    else:
+        st.warning("Please enter a valid PIN to access the Entry Form.")
+        st.stop()
 
 # === Auto-clear Item & Quantity after rerun ===
 if "entry_success" in st.session_state and st.session_state.entry_success:
@@ -69,30 +75,17 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_qty = 0
     st.session_state.entry_time = datetime.now()
 
-
-# # Dynamically fetch unique item names from the sheet
-# item_column = df["Item"].dropna().unique().tolist()
-# item_column = sorted([item.strip() for item in item_column if item.strip()])  # Clean and sort
-# item_list = ["-- Select Item --"] + item_column
-
 # === Item List from Google Sheet ===
 try:
-    # === Load dynamic item list from 'Items' sheet ===
-    items_sheet = client.open(SHEET_NAME).worksheet("Rates")  # Make sure the sheet name is "Rate"
+    items_sheet = client.open(SHEET_NAME).worksheet("Rates")
     items_data = items_sheet.get_all_records()
-
-    # Extract item names
     item_list_from_sheet = [row["Item"] for row in items_data if row.get("Item")]
-
-    # Add default "-- Select Item --" at the top
     item_list = ["-- Select Item --"] + item_list_from_sheet
-
 except Exception as e:
     st.warning(f"⚠️ Failed to load item list from sheet: {e}")
     item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg Sandwich", "Chicken Sandwitch", "Biscuit",
                  "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
                  "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
-
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -155,9 +148,3 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
-
-
-
-
-
-
