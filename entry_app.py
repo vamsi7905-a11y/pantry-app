@@ -96,7 +96,7 @@ if submitted:
     else:
         try:
             entry_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            formatted_date = date.strftime("%Y-%m-%d")  # ⬅️ Force date format as YYYY-MM-DD
+            formatted_date = date.strftime("%d-%m-%Y")  # ⬅️ New format: DD-MM-YYYY
             sheet.append_row([
                 formatted_date, apm_id.strip(), name.strip(), item, qty, action,
                 coupon_no.strip(), pantry_boy.strip(), entry_time
@@ -123,3 +123,4 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
