@@ -6,11 +6,6 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Load PIN from Streamlit secrets or environment variable
-ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
-
-# Ask user to enter PIN before accessing anything
-pin_input = st.text_input("🔐 Enter Access PIN", type="password")
 # 🛠️ Hide "show password" toggle using CSS
 st.markdown("""
     <style>
@@ -20,6 +15,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Load PIN from Streamlit secrets or environment variable
+ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
+
+# Ask user to enter PIN before accessing anything
+pin_input = st.text_input("🔐 Enter Access PIN", type="password")
 
 
 if pin_input != ENTRY_APP_PIN:
@@ -163,4 +163,5 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
