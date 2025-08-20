@@ -6,8 +6,10 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# === Load PIN from secrets / env ===
+# Load PIN from Streamlit secrets or environment variable
 ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
+
+# Ask user to enter PIN before accessing anything
 pin_input = st.text_input("🔐 Enter Access PIN", type="password")
 
 if pin_input != ENTRY_APP_PIN:
@@ -28,6 +30,7 @@ sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
 
+# Safe column assignment if data is empty
 expected_columns = ["Date", "APM ID", "Name", "Item", "Quantity", "Action", "Coupon No", "Pantry Boy", "Entry Time"]
 if df.empty:
     df = pd.DataFrame(columns=expected_columns)
@@ -55,17 +58,7 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_pantry = ""
     st.session_state.entry_item = "-- Select Item --"
     st.session_state.entry_qty = 0
-    st.session_state.entry_action = "Issued"
-    st.session_state.entry_success = False
     st.session_state.entry_time = datetime.now()
-
-# === Reset Item & Quantity after successful submit (before widgets) ===
-if "entry_success" in st.session_state and st.session_state.entry_success:
-    st.session_state.update({
-        "entry_item": "-- Select Item --",
-        "entry_qty": 0,
-        "entry_success": False
-    })
 
 # === Item List from Google Sheet ===
 try:
@@ -75,14 +68,16 @@ try:
     item_list = ["-- Select Item --"] + item_list_from_sheet
 except Exception as e:
     st.warning(f"⚠️ Failed to load item list from sheet: {e}")
-    item_list = [
-        "-- Select Item --", "Tea", "Coffee", "Coke", "Veg Sandwich",
-        "Chicken Sandwich", "Biscuit", "Juice", "Lays", "Dry Fruits",
-        "Fruit Bowl", "Samosa", "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"
-    ]
+    item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg Sandwich", "Chicken Sandwitch",
+                 "Biscuit", "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
+                 "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
+
+# 👇 ensure submitted always exists
+submitted = False
+
 with st.form("entry_form"):
     col1, col2, col3 = st.columns(3)
 
@@ -108,6 +103,9 @@ with st.form("entry_form"):
 
     pantry_boy = st.text_input("Pantry Boy Name", key="entry_pantry")
 
+    # ✅ This ensures we always have a submit button
+    submitted = st.form_submit_button("➕ Submit Entry")
+
 # === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
@@ -127,7 +125,7 @@ if submitted:
 
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # ✅ Reset item & qty safely (use update, then rerun)
+            # ✅ Reset item & qty safely
             st.session_state.update({
                 "entry_item": "-- Select Item --",
                 "entry_qty": 0
@@ -145,5 +143,3 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
-
-
