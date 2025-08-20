@@ -6,17 +6,13 @@ import os
 from datetime import datetime, timedelta
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Load PIN from Streamlit secrets or environment variable
+# === Load PIN from secrets / env ===
 ENTRY_APP_PIN = os.environ.get("ENTRY_APP_PIN", "")
-
-# Ask user to enter PIN before accessing anything
 pin_input = st.text_input("🔐 Enter Access PIN", type="password")
-
 
 if pin_input != ENTRY_APP_PIN:
     st.warning("Please enter a valid PIN to access the Entry Form.")
     st.stop()
-
 
 # === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -32,7 +28,6 @@ sheet = client.open(SHEET_NAME).worksheet("Pantry Entries")
 data = sheet.get_all_records()
 df = pd.DataFrame(data)
 
-# Safe column assignment if data is empty
 expected_columns = ["Date", "APM ID", "Name", "Item", "Quantity", "Action", "Coupon No", "Pantry Boy", "Entry Time"]
 if df.empty:
     df = pd.DataFrame(columns=expected_columns)
@@ -60,32 +55,31 @@ if "entry_date" not in st.session_state or datetime.now() - st.session_state.ent
     st.session_state.entry_pantry = ""
     st.session_state.entry_item = "-- Select Item --"
     st.session_state.entry_qty = 0
+    st.session_state.entry_action = "Issued"
+    st.session_state.entry_success = False
     st.session_state.entry_time = datetime.now()
 
-
-# # Dynamically fetch unique item names from the sheet
-# item_column = df["Item"].dropna().unique().tolist()
-# item_column = sorted([item.strip() for item in item_column if item.strip()])  # Clean and sort
-# item_list = ["-- Select Item --"] + item_column
+# === Reset Item & Quantity after successful submit (before widgets) ===
+if "entry_success" in st.session_state and st.session_state.entry_success:
+    st.session_state.update({
+        "entry_item": "-- Select Item --",
+        "entry_qty": 0,
+        "entry_success": False
+    })
 
 # === Item List from Google Sheet ===
 try:
-    # === Load dynamic item list from 'Items' sheet ===
-    items_sheet = client.open(SHEET_NAME).worksheet("Rates")  # Make sure the sheet name is "Rate"
+    items_sheet = client.open(SHEET_NAME).worksheet("Rates")
     items_data = items_sheet.get_all_records()
-
-    # Extract item names
     item_list_from_sheet = [row["Item"] for row in items_data if row.get("Item")]
-
-    # Add default "-- Select Item --" at the top
     item_list = ["-- Select Item --"] + item_list_from_sheet
-
 except Exception as e:
     st.warning(f"⚠️ Failed to load item list from sheet: {e}")
-    item_list = ["-- Select Item --", "Tea", "Coffee", "Coke", "Veg Sandwich", "Chicken Sandwitch", "Biscuit",
-                 "Juice", "Lays", "Dry Fruits", "Fruit Bowl", "Samosa",
-                 "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"]
-
+    item_list = [
+        "-- Select Item --", "Tea", "Coffee", "Coke", "Veg Sandwich",
+        "Chicken Sandwich", "Biscuit", "Juice", "Lays", "Dry Fruits",
+        "Fruit Bowl", "Samosa", "Idli/Wada", "EFAAS & LIVIN JUICE", "Mentos"
+    ]
 
 # === Entry Form ===
 st.subheader("📥 New Entry")
@@ -104,8 +98,8 @@ with st.form("entry_form"):
 
     with col3:
         item = st.selectbox(
-            "Item", 
-            item_list, 
+            "Item",
+            item_list,
             index=item_list.index(st.session_state.entry_item) if st.session_state.entry_item in item_list else 0,
             key="entry_item"
         )
@@ -117,7 +111,6 @@ with st.form("entry_form"):
     submitted = st.form_submit_button("➕ Submit Entry")
 
 # === Submit Entry Logic ===
-# === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
@@ -128,18 +121,17 @@ if submitted:
     else:
         try:
             entry_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            formatted_date = date.strftime("%d-%m-%Y")  # ⬅️ DD-MM-YYYY
+            formatted_date = date.strftime("%d-%m-%Y")  # DD-MM-YYYY
             sheet.append_row([
                 formatted_date, apm_id.strip(), name.strip(), item, qty, action,
                 coupon_no.strip(), pantry_boy.strip(), entry_time
             ])
+
+            # ✅ Mark for reset next rerun
+            st.session_state.entry_success = True
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # ✅ Reset only Item & Qty (keep other fields)
-            st.session_state.entry_item = "-- Select Item --"
-            st.session_state.entry_qty = 0
-
-            # 🔄 Immediately reload so new row shows in table
+            # 🔄 Reload data immediately
             data = sheet.get_all_records()
             df = pd.DataFrame(data)
             if df.empty:
@@ -150,8 +142,6 @@ if submitted:
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
 
-
-
 # === View Entries Section ===
 st.markdown("---")
 st.subheader("📄 Recent Entries")
@@ -160,6 +150,3 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
-
-
-
