@@ -123,6 +123,7 @@ with st.form("entry_form"):
     submitted = st.form_submit_button("➕ Submit Entry")
 
 # === Submit Entry Logic ===
+# === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
@@ -140,11 +141,13 @@ if submitted:
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Preserve other fields, reset only qty
-            st.session_state.entry_qty = 0  
+            # ✅ Trigger reset for next rerun
+            st.session_state.entry_success = True  
 
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
+
+
 
 # === View Entries Section ===
 st.markdown("---")
@@ -154,3 +157,4 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
