@@ -123,7 +123,6 @@ with st.form("entry_form"):
     submitted = st.form_submit_button("➕ Submit Entry")
 
 # === Submit Entry Logic ===
-# === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
@@ -141,12 +140,19 @@ if submitted:
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # ✅ Trigger reset for next rerun
+            # ✅ Trigger reset of only Item & Qty
             st.session_state.entry_success = True  
+
+            # 🔄 Immediately reload data so table updates instantly
+            data = sheet.get_all_records()
+            df = pd.DataFrame(data)
+            if df.empty:
+                df = pd.DataFrame(columns=expected_columns)
+            else:
+                df.columns = df.columns.str.strip()
 
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
-
 
 
 # === View Entries Section ===
@@ -157,4 +163,5 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
