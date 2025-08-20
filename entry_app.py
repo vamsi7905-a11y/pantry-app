@@ -17,12 +17,6 @@ if pin_input != ENTRY_APP_PIN:
     st.warning("Please enter a valid PIN to access the Entry Form.")
     st.stop()
 
-# === Auto-clear Item & Quantity after rerun ===
-if "entry_success" in st.session_state and st.session_state.entry_success:
-    st.session_state.entry_item = "-- Select Item --"
-    st.session_state.entry_qty = 0
-    st.session_state.entry_success = False
-    st.rerun()
 
 # === Google Sheets Auth ===
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -123,6 +117,7 @@ with st.form("entry_form"):
     submitted = st.form_submit_button("➕ Submit Entry")
 
 # === Submit Entry Logic ===
+# === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
         st.error("❌ Coupon Number must be numeric")
@@ -140,10 +135,11 @@ if submitted:
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # ✅ Trigger reset of only Item & Qty
-            st.session_state.entry_success = True  
+            # ✅ Reset only Item & Qty (keep other fields)
+            st.session_state.entry_item = "-- Select Item --"
+            st.session_state.entry_qty = 0
 
-            # 🔄 Immediately reload data so table updates instantly
+            # 🔄 Immediately reload so new row shows in table
             data = sheet.get_all_records()
             df = pd.DataFrame(data)
             if df.empty:
@@ -155,6 +151,7 @@ if submitted:
             st.error(f"❌ Failed to record entry: {e}")
 
 
+
 # === View Entries Section ===
 st.markdown("---")
 st.subheader("📄 Recent Entries")
@@ -163,5 +160,6 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
 
