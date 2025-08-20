@@ -108,8 +108,6 @@ with st.form("entry_form"):
 
     pantry_boy = st.text_input("Pantry Boy Name", key="entry_pantry")
 
-    submitted = st.form_submit_button("➕ Submit Entry")
-
 # === Submit Entry Logic ===
 if submitted:
     if not coupon_no.isdigit():
@@ -127,23 +125,17 @@ if submitted:
                 coupon_no.strip(), pantry_boy.strip(), entry_time
             ])
 
-            # ✅ Reset item & qty immediately
-            st.session_state.entry_item = "-- Select Item --"
-            st.session_state.entry_qty = 0
-
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # 🔄 Reload data immediately
-            data = sheet.get_all_records()
-            df = pd.DataFrame(data)
-            if df.empty:
-                df = pd.DataFrame(columns=expected_columns)
-            else:
-                df.columns = df.columns.str.strip()
+            # ✅ Reset item & qty safely (use update, then rerun)
+            st.session_state.update({
+                "entry_item": "-- Select Item --",
+                "entry_qty": 0
+            })
+            st.rerun()
 
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
-
 
 # === View Entries Section ===
 st.markdown("---")
@@ -153,4 +145,5 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
