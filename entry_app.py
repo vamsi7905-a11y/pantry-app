@@ -144,119 +144,96 @@
 #     st.info("No entries yet.")
 
 
-
-
-
+# entry_app.py
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime, date
+from datetime import datetime
 
-# ==============================
-# GOOGLE SHEETS CONFIG
-# ==============================
-SHEET_NAME = "Pantry_Entries"  # <-- Change to your sheet name
-
-# Connect to Google Sheets
+# -----------------------
+# Connect to Google Sheet
+# -----------------------
 @st.cache_resource
 def connect_gsheet():
-    scope = ["https://spreadsheets.google.com/feeds",
-             "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file(
-        "service_account.json", scopes=scope
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=scope
     )
     client = gspread.authorize(creds)
-    sheet = client.open(SHEET_NAME).sheet1
+    sheet = client.open("Pantry_Entries").sheet1   # <-- change to your sheet name
     return sheet
 
 sheet = connect_gsheet()
 
-# ==============================
-# STREAMLIT UI
-# ==============================
-st.set_page_config(page_title="Pantry Entry", page_icon="🍽️", layout="centered")
-st.title("🍽️ Pantry Entry - Multi Item")
+# -----------------------
+# Streamlit App
+# -----------------------
+st.set_page_config(page_title="Pantry Entry", page_icon="🍵", layout="centered")
 
-# --- Session state setup ---
-if "items" not in st.session_state:
-    st.session_state.items = [{"item": "-- Select Item --", "qty": 0}]
+st.markdown("## 📝 New Entry")
 
-# --- Fixed fields ---
-col1, col2, col3 = st.columns(3)
-with col1:
-    entry_date = st.date_input("Date", date.today())
-with col2:
-    apm_id = st.text_input("APM ID")
-with col3:
-    coupon = st.text_input("Coupon Number")
+with st.form("entry_form", clear_on_submit=False):
 
-col4, col5 = st.columns(2)
-with col4:
+    # Date & Time
+    entry_date = st.date_input("Date", datetime.now().date())
+    entry_time = datetime.now().strftime("%H:%M:%S")
+
+    # Name & APM ID
     name = st.text_input("Name")
-with col5:
+    apm_id = st.text_input("APM ID")
+
+    # Coupon Number
+    coupon_number = st.text_input("Coupon Number")
+
+    # Pantry Boy
     pantry_boy = st.text_input("Pantry Boy Name")
 
-action = st.selectbox("Action", ["Issued", "Returned"])
+    # Action
+    action = st.selectbox("Action", ["Issued", "Returned"])
 
-# ==============================
-# MULTI ITEM SECTION
-# ==============================
-st.subheader("📝 Items")
-item_list = ["-- Select Item --", "Tea", "Coffee", "Sandwich", "Water Bottle", "Maggi", "Buttermilk"]
+    st.markdown("### Items")
 
-# Loop through items in session state
-for i, row in enumerate(st.session_state.items):
-    cols = st.columns([3, 1, 0.5])
-    with cols[0]:
-        st.session_state.items[i]["item"] = st.selectbox(
-            f"Item {i+1}", item_list,
-            index=item_list.index(row["item"]) if row["item"] in item_list else 0,
-            key=f"item_{i}"
-        )
-    with cols[1]:
-        st.session_state.items[i]["qty"] = st.number_input(
-            f"Qty {i+1}", min_value=0, value=row["qty"], step=1, key=f"qty_{i}"
-        )
-    with cols[2]:
-        if st.button("❌", key=f"remove_{i}"):
-            st.session_state.items.pop(i)
-            st.rerun()
+    if "items" not in st.session_state:
+        st.session_state["items"] = []
 
-# --- Add new row button ---
-if st.button("➕ Add Item"):
-    st.session_state.items.append({"item": "-- Select Item --", "qty": 0})
-    st.rerun()
+    col1, col2, col3 = st.columns([3, 1, 1])
+    with col1:
+        item = st.text_input("Item", key="item_input")
+    with col2:
+        qty = st.number_input("Quantity", min_value=1, step=1, key="qty_input")
+    with col3:
+        st.write("")  # spacer
+        if st.button("➕ Add Item"):
+            if item and qty > 0:
+                st.session_state["items"].append({"item": item, "qty": qty})
+                st.session_state["item_input"] = ""
+                st.session_state["qty_input"] = 1
 
-# ==============================
-# SUBMIT SECTION
-# ==============================
-if st.button("✅ Submit Entry"):
-    if not st.session_state.items or all(it["item"] == "-- Select Item --" for it in st.session_state.items):
-        st.error("Please add at least one valid item.")
-    else:
-        entry_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        saved_any = False
-        for it in st.session_state.items:
-            if it["item"] != "-- Select Item --" and it["qty"] > 0:
-                # Save each item row in Google Sheet
-                row = [
+    # Show current items
+    if st.session_state["items"]:
+        st.table(st.session_state["items"])
+
+    submitted = st.form_submit_button("✅ Submit Entry")
+
+    if submitted:
+        if not (name and apm_id and coupon_number and pantry_boy and st.session_state["items"]):
+            st.error("⚠️ Please fill all fields and add at least one item.")
+        else:
+            for entry in st.session_state["items"]:
+                sheet.append_row([
                     entry_date.strftime("%Y-%m-%d"),
                     entry_time,
-                    apm_id.strip(),
-                    name.strip(),
-                    coupon.strip(),
-                    it["item"],
-                    it["qty"],
+                    name,
+                    apm_id,
+                    coupon_number,
+                    entry["item"],
+                    entry["qty"],
                     action,
-                    pantry_boy.strip()
-                ]
-                sheet.append_row(row)
-                saved_any = True
-                st.success(f"✅ Recorded: {name} - {it['item']} x {it['qty']} ({action})")
-
-        if saved_any:
-            # Reset items after submit
-            st.session_state.items = [{"item": "-- Select Item --", "qty": 0}]
-            st.rerun()
-
-
+                    pantry_boy
+                ])
+            st.success("✅ Entry submitted successfully!")
+            st.session_state["items"] = []  # clear items after submission
