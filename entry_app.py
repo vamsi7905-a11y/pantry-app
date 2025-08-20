@@ -127,8 +127,10 @@ if submitted:
                 coupon_no.strip(), pantry_boy.strip(), entry_time
             ])
 
-            # ✅ Mark for reset next rerun
-            st.session_state.entry_success = True
+            # ✅ Reset item & qty immediately
+            st.session_state.entry_item = "-- Select Item --"
+            st.session_state.entry_qty = 0
+
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
             # 🔄 Reload data immediately
@@ -142,6 +144,7 @@ if submitted:
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
 
+
 # === View Entries Section ===
 st.markdown("---")
 st.subheader("📄 Recent Entries")
@@ -150,3 +153,4 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
