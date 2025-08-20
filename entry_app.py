@@ -99,21 +99,27 @@ with st.form("entry_form"):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        date = st.date_input("Date", value=st.session_state.entry_date)
-        apm_id = st.text_input("APM ID", value=st.session_state.entry_apm)
+        date = st.date_input("Date", key="entry_date")
+        apm_id = st.text_input("APM ID", key="entry_apm")
 
     with col2:
-        name = st.text_input("Name", value=st.session_state.entry_name)
-        coupon_no = st.text_input("Coupon Number", value=st.session_state.entry_coupon)
+        name = st.text_input("Name", key="entry_name")
+        coupon_no = st.text_input("Coupon Number", key="entry_coupon")
         if coupon_no and not coupon_no.isdigit():
             st.warning("Coupon Number must be numeric")
 
     with col3:
-        item = st.selectbox("Item", item_list, index=item_list.index(st.session_state.entry_item), key="entry_item")
-        qty = st.number_input("Quantity", min_value=0, value=st.session_state.entry_qty, key="entry_qty")
-        action = st.selectbox("Action", ["Issued", "Returned"])
+        item = st.selectbox(
+            "Item", 
+            item_list, 
+            index=item_list.index(st.session_state.entry_item) if st.session_state.entry_item in item_list else 0,
+            key="entry_item"
+        )
+        qty = st.number_input("Quantity", min_value=0, key="entry_qty")
+        action = st.selectbox("Action", ["Issued", "Returned"], key="entry_action")
 
-    pantry_boy = st.text_input("Pantry Boy Name", value=st.session_state.entry_pantry)
+    pantry_boy = st.text_input("Pantry Boy Name", key="entry_pantry")
+
     submitted = st.form_submit_button("➕ Submit Entry")
 
 # === Submit Entry Logic ===
@@ -127,21 +133,15 @@ if submitted:
     else:
         try:
             entry_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            formatted_date = date.strftime("%d-%m-%Y")  # ⬅️ New format: DD-MM-YYYY
+            formatted_date = date.strftime("%d-%m-%Y")  # ⬅️ DD-MM-YYYY
             sheet.append_row([
                 formatted_date, apm_id.strip(), name.strip(), item, qty, action,
                 coupon_no.strip(), pantry_boy.strip(), entry_time
             ])
             st.success(f"✅ Entry for {item} ({action}) recorded!")
 
-            # Preserve other fields
-            st.session_state.entry_date = date
-            st.session_state.entry_apm = apm_id.strip()
-            st.session_state.entry_name = name.strip()
-            st.session_state.entry_coupon = coupon_no.strip()
-            st.session_state.entry_pantry = pantry_boy.strip()
-            st.session_state.entry_time = datetime.now()
-            st.session_state.entry_success = True
+            # Preserve other fields, reset only qty
+            st.session_state.entry_qty = 0  
 
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
@@ -154,6 +154,3 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
-
-
-
