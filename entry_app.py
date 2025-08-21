@@ -111,7 +111,7 @@ with st.form("entry_form"):
 # ================= SUBMIT LOGIC =================
 if submitted:
     if coupon_no.strip() == "" or not coupon_no.strip().isdigit():
-    st.error("❌ Coupon Number must be numeric and not empty")
+        st.error("❌ Coupon Number must be numeric and not empty")
     elif item == "-- Select Item --":
         st.warning("⚠️ Please select a valid item.")
     elif qty == 0:
@@ -134,6 +134,7 @@ if submitted:
         except Exception as e:
             st.error(f"❌ Failed to record entry: {e}")
 
+
 # ================= RECENT ENTRIES =================
 st.markdown("---")
 st.subheader("📄 Recent Entries")
@@ -142,6 +143,7 @@ if not df.empty:
     st.dataframe(df.tail(20).iloc[::-1].reset_index(drop=True), use_container_width=True)
 else:
     st.info("No entries yet.")
+
 
 
 
